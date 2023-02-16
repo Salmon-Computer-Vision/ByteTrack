@@ -236,22 +236,30 @@ def image_demo(predictor, vis_folder, current_time, args):
         logger.info(f"save results to {res_file}")
 
 
+
 def imageflow_demo(predictor, vis_folder, current_time, args):
     cap = cv2.VideoCapture(args.path if args.demo == "video" else args.camid)
     width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
-    timestamp = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-    save_folder = osp.join(vis_folder, timestamp)
-    os.makedirs(save_folder, exist_ok=True)
-    if args.demo == "video":
-        save_path = osp.join(save_folder, args.path.split("/")[-1])
-    else:
-        save_path = osp.join(save_folder, "camera.mp4")
-    logger.info(f"video save_path is {save_path}")
-    vid_writer = cv2.VideoWriter(
-        save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
-    )
+
+    def create_vid_writer(current_time)
+        timestamp = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
+        save_folder = osp.join(vis_folder, timestamp)
+        os.makedirs(save_folder, exist_ok=True)
+        if args.demo == "video":
+            save_path = osp.join(save_folder, args.path.split("/")[-1])
+        else:
+            save_path = osp.join(save_folder, "camera.mp4")
+        logger.info(f"video save_path is {save_path}")
+        vid_writer = cv2.VideoWriter(
+            save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
+        )
+
+        return timestamp, vid_writer
+
+    timestamp, vid_writer = create_vid_writer(current_time)
+
     tracker = BYTETracker(args, frame_rate=30)
     timer = Timer()
     frame_id = 0
@@ -284,8 +292,38 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                 for t in online_targets:
                     tlwh = t.tlwh
                     tid = t.track_id
-                    vertical = tlwh[2] / tlwh[3] > args.aspect_ratio_thresh
-                    if tlwh[2] * tlwh[3] > args.min_box_area and not vertical:
+                    horizontal = tlwh[2] / tlwh[3] > args.aspect_ratio_thresh
+                    if tlwh[2] * tlwh[3] > args.min_box_area and horizontal:
+                        if not tid in num_ids:
+                            num_ids[tid] = 1
+                        else:
+                            num_ids[tid] += 1
+
+                            past_left = tlwh[0] + tlwh[2] < left_dir_thresh
+                            past_right = tlwh[0] > right_dir_thresh
+                            if past_left or past_right:
+                                det_id = counted_ids[counted_ids[COL_COUNTABLE_ID] == tid]
+                                if not det_id.empty:
+                                    last_row = det_id.iloc[-1,:]
+                                    # Check if last entry was a left or right direction
+                                    # Prevents unnecessary continuous entries
+                                    not_last_left = last_row[COL_DIRECTION] != VAL_LEFT
+                                    not_last_right = last_row[COL_DIRECTION] != VAL_RIGHT
+                                else:
+                                    not_last_left = True
+                                    not_last_right = True
+
+                                def append_id(direction):
+                                    temp_df = pd.DataFrame([[opt.input, frame_id, tid, direction]], 
+                                            columns=[COL_FILENAME, COL_FRAME_NUM, COL_COUNTABLE_ID, COL_DIRECTION])
+                                    return pd.concat([counted_ids, temp_df], ignore_index=True)
+
+                                countable = num_ids[tid] > hist_thresh
+                                if past_left and not_last_left and countable:
+                                    counted_ids = append_id(VAL_LEFT)
+                                elif past_right and not_last_right and countable:
+                                    counted_ids = append_id(VAL_RIGHT)
+
                         online_tlwhs.append(tlwh)
                         online_ids.append(tid)
                         online_scores.append(t.score)
@@ -299,8 +337,14 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             else:
                 timer.toc()
                 online_im = img_info['raw_img']
+                # Create a new video writer and txt file approx. every hour when no tracks
+                if args.demo != "video" and frame_id % (fps * 60) == 0:
+                    timestamp, vid_writer = create_vid_writer(time.localtime())
+
             if args.save_result:
                 vid_writer.write(online_im)
+                counts_file = osp.join(vis_folder, f"counts_{timestamp}.txt")
+                counted_ids.to_csv(counts_file, mode='a', index=False, header=False)
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
