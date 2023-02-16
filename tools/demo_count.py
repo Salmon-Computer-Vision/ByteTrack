@@ -4,6 +4,7 @@ import os.path as osp
 import time
 import cv2
 import torch
+import pandas as pd
 
 from loguru import logger
 
@@ -16,6 +17,12 @@ from yolox.tracking_utils.timer import Timer
 
 
 IMAGE_EXT = [".jpg", ".jpeg", ".webp", ".bmp", ".png"]
+COL_FILENAME = 'Filename'
+COL_COUNTABLE_ID = 'Countable ID'
+COL_FRAME_NUM = 'Frame Num'
+COL_DIRECTION = 'Direction'
+VAL_LEFT = 'Left'
+VAL_RIGHT = 'Right'
 
 
 def make_parser():
@@ -199,7 +206,7 @@ def image_demo(predictor, vis_folder, current_time, args):
                 tlwh = t.tlwh
                 tid = t.track_id
                 horizontal = tlwh[2] / tlwh[3] > args.aspect_ratio_thresh
-                if tlwh[2] * tlwh[3] > args.min_box_area and horizontal:
+                if tlwh[2] * tlwh[3] > args.min_box_area and not horizontal:
                     online_tlwhs.append(tlwh)
                     online_ids.append(tid)
                     online_scores.append(t.score)
@@ -243,7 +250,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float
     fps = cap.get(cv2.CAP_PROP_FPS)
 
-    def create_vid_writer(current_time)
+    def create_vid_writer(current_time):
         timestamp = time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
         save_folder = osp.join(vis_folder, timestamp)
         os.makedirs(save_folder, exist_ok=True)
@@ -256,9 +263,12 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             save_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (int(width), int(height))
         )
 
-        return timestamp, vid_writer
+        counts_file = osp.join(vis_folder, f"{timestamp}_counts.csv")
+        logger.info(f"counts save_path is {counts_file}")
 
-    timestamp, vid_writer = create_vid_writer(current_time)
+        return timestamp, vid_writer, counts_file
+
+    timestamp, vid_writer, counts_file = create_vid_writer(current_time)
 
     tracker = BYTETracker(args, frame_rate=30)
     timer = Timer()
@@ -271,16 +281,22 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     counted_ids = pd.DataFrame(columns=[COL_FILENAME, COL_FRAME_NUM, COL_COUNTABLE_ID, COL_DIRECTION]) 
 
     # Counting thresholds in respective directions in the field of view
-    right_dir_thresh = opt.img_size[0] * count_thresh
-    left_dir_thresh = opt.img_size[0] * (1.0 - count_thresh)
+    right_dir_thresh = width * args.count_thresh
+    left_dir_thresh = width * (1.0 - args.count_thresh)
 
     #hist_thresh = math.ceil(frame_rate / 4) # A quarter of a second
     hist_thresh = 1
     horiz_thresh = 0.9 # Forces rectangular bounding boxes (Rect ratio)
 
+    if args.demo != 'video':
+        check_split = False # Will check split timing if an hour has passed
+        start_time = time.time()
     while True:
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
+        if args.demo != 'video' and not check_split and (time.time() - start_time > 3600):
+            check_split = True
+
         ret_val, frame = cap.read()
         if ret_val:
             outputs, img_info = predictor.inference(frame, timer)
@@ -314,7 +330,7 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                                     not_last_right = True
 
                                 def append_id(direction):
-                                    temp_df = pd.DataFrame([[opt.input, frame_id, tid, direction]], 
+                                    temp_df = pd.DataFrame([[args.path, frame_id, tid, direction]], 
                                             columns=[COL_FILENAME, COL_FRAME_NUM, COL_COUNTABLE_ID, COL_DIRECTION])
                                     return pd.concat([counted_ids, temp_df], ignore_index=True)
 
@@ -338,12 +354,13 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
                 timer.toc()
                 online_im = img_info['raw_img']
                 # Create a new video writer and txt file approx. every hour when no tracks
-                if args.demo != "video" and frame_id % (fps * 60) == 0:
-                    timestamp, vid_writer = create_vid_writer(time.localtime())
+                if args.demo != "video" and check_split:
+                    timestamp, vid_writer, counts_file = create_vid_writer(time.localtime())
+                    start_time = time.time()
+                    check_split = False
 
             if args.save_result:
                 vid_writer.write(online_im)
-                counts_file = osp.join(vis_folder, f"counts_{timestamp}.txt")
                 counted_ids.to_csv(counts_file, mode='a', index=False, header=False)
             ch = cv2.waitKey(1)
             if ch == 27 or ch == ord("q") or ch == ord("Q"):
