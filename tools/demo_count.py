@@ -1,6 +1,7 @@
 import argparse
 import os
 import os.path as osp
+import signal
 import time
 import cv2
 import torch
@@ -288,10 +289,15 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
     hist_thresh = 1
     horiz_thresh = 0.9 # Forces rectangular bounding boxes (Rect ratio)
 
+    finish = False
+    def signal_handler(sig, frame):
+        finish = True
+    signal.signal(signal.SIGINT, signal_handler)
+        
     if args.demo != 'video':
         check_split = False # Will check split timing if an hour has passed
         start_time = time.time()
-    while True:
+    while not finish:
         if frame_id % 20 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
         if args.demo != 'video' and not check_split and (time.time() - start_time > 3600):
@@ -362,9 +368,6 @@ def imageflow_demo(predictor, vis_folder, current_time, args):
             if args.save_result:
                 vid_writer.write(online_im)
                 counted_ids.to_csv(counts_file, mode='a', index=False, header=False)
-            ch = cv2.waitKey(1)
-            if ch == 27 or ch == ord("q") or ch == ord("Q"):
-                break
         else:
             break
         frame_id += 1
