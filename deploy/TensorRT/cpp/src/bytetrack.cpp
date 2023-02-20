@@ -6,6 +6,7 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
+#include <signal.h>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
@@ -29,8 +30,8 @@
 using namespace nvinfer1;
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_W = 1088;
-static const int INPUT_H = 608;
+static const int INPUT_W = 640;
+static const int INPUT_H = 640;
 const char* INPUT_BLOB_NAME = "input_0";
 const char* OUTPUT_BLOB_NAME = "output_0";
 static Logger gLogger;
@@ -351,6 +352,12 @@ const float color_list[80][3] =
     {0.50, 0.5, 0}
 };
 
+static volatile int keepRunning = true;
+
+void intHandler(int d) {
+    keepRunning = false;
+}
+
 void doInference(IExecutionContext& context, float* input, float* output, const int output_size, Size input_shape) {
     const ICudaEngine& engine = context.getEngine();
 
@@ -443,11 +450,13 @@ int main(int argc, char** argv) {
 
     VideoWriter writer("demo.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
 
+    signal(SIGINT, intHandler);
+
     Mat img;
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
-	while (true)
+	while (keepRunning)
     {
         if(!cap.read(img))
             break;
@@ -490,11 +499,6 @@ int main(int argc, char** argv) {
         writer.write(img);
 
         delete blob;
-        char c = waitKey(1);
-        if (c > 0)
-        {
-            break;
-        }
     }
     cap.release();
     cout << "FPS: " << num_frames * 1000000 / total_ms << endl;
