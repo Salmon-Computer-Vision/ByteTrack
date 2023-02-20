@@ -456,6 +456,7 @@ int main(int argc, char** argv) {
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
+    int running_fps = 0;
 	while (keepRunning)
     {
         if(!cap.read(img))
@@ -463,7 +464,11 @@ int main(int argc, char** argv) {
         num_frames ++;
         if (num_frames % 20 == 0)
         {
-            cout << "Processing frame " << num_frames << " (" << num_frames * 1000000 / total_ms << " fps)" << endl;
+            running_fps += num_frames * 1000000 / total_ms;
+            running_fps /= 2;
+            cout << "Processing frame " << num_frames << " (" << running_fps << " fps)" << endl;
+            num_frames = 0;
+            total_ms = 0;
         }
 		if (img.empty())
 			break;
@@ -501,7 +506,7 @@ int main(int argc, char** argv) {
         delete blob;
     }
     cap.release();
-    cout << "FPS: " << num_frames * 1000000 / total_ms << endl;
+    cout << "FPS: " << running_fps << endl;
     // destroy the engine
     context->destroy();
     engine->destroy();
