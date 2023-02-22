@@ -538,6 +538,7 @@ int main(int argc, char** argv) {
         num_frames ++;
         if (num_frames % 20 == 0)
         {
+            counts_file.flush();
             running_fps = num_frames / (total_ms / 1000000.0);
             cout << "Processing frame " << num_frames << " (" << running_fps << " fps)" << endl;
         }
@@ -571,7 +572,7 @@ int main(int argc, char** argv) {
 			bool horizontal = tlwh[2] / tlwh[3] > horiz_thresh;
 			if (tlwh[2] * tlwh[3] > 20 && horizontal)
 			{
-                if (num_ids.count(tid)) num_ids[tid] = std::make_tuple(1, LastDir::NONE);
+                if (num_ids.count(tid) <= 0) num_ids[tid] = std::make_tuple(1, LastDir::NONE);
                 else {
                     auto& tid_count = std::get<0>(num_ids[tid]);
                     auto& tid_ldir = std::get<1>(num_ids[tid]);
@@ -615,6 +616,7 @@ int main(int argc, char** argv) {
             total_ms = 0;
         }
     }
+    counts_file.close();
     cap.release();
     cout << "FPS: " << running_fps << endl;
     // destroy the engine
