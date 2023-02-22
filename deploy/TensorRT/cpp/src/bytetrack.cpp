@@ -612,6 +612,7 @@ int main(int argc, char** argv) {
             counts_file.close();
             std::tie(timestamp, writer, counts_file) = create_vid_writer(std::time(nullptr));
             check_split = false;
+            start_split_time = chrono::system_clock::now();
             num_frames = 0;
             total_ms = 0;
         }
