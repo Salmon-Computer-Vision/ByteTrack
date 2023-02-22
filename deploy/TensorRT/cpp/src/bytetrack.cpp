@@ -3,10 +3,13 @@
 #include <sstream>
 #include <numeric>
 #include <chrono>
+#include <string>
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 #include <signal.h>
+#include <ctime>
+#include <filesystem>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
@@ -29,11 +32,20 @@
 
 using namespace nvinfer1;
 
+namespace fs = std::filesystem;
+
 // stuff we know about the network and the input/output blobs
 static const int INPUT_W = 640;
 static const int INPUT_H = 640;
 const char* INPUT_BLOB_NAME = "input_0";
 const char* OUTPUT_BLOB_NAME = "output_0";
+static const std::string COL_FILENAME = "Filename";
+static const std::string COL_COUNTABLE_ID = "Countable ID";
+static const std::string COL_FRAME_NUM = "Frame Num";
+static const std::string COL_DIRECTION = "Direction";
+static const std::string VAL_LEFT = "Left";
+static const std::string VAL_RIGHT = "Right";
+
 static Logger gLogger;
 
 Mat static_resize(Mat& img) {
@@ -354,6 +366,12 @@ const float color_list[80][3] =
 
 static volatile int keepRunning = true;
 
+enum class LastDir {
+    NONE,
+    RIGHT,
+    LEFT
+};
+
 void intHandler(int d) {
     keepRunning = false;
 }
@@ -395,6 +413,18 @@ void doInference(IExecutionContext& context, float* input, float* output, const 
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
+void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream& outfile) {
+    for (const auto& row : table) {
+        for (auto it = row.begin(); it != row.end(); ++it) {
+            outfile << *it;
+            if (it != row.end() - 1) {
+                outfile << ",";
+            }
+        }
+        outfile << std::endl;
+    }
+}
+
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
     
@@ -402,7 +432,7 @@ int main(int argc, char** argv) {
     char *trtModelStream{nullptr};
     size_t size{0};
 
-    if (argc == 4 && string(argv[2]) == "-i") {
+    if (argc >= 4 && string(argv[2]) == "-i") {
         const string engine_file_path {argv[1]};
         ifstream file(engine_file_path, ios::binary);
         if (file.good()) {
@@ -420,9 +450,11 @@ int main(int argc, char** argv) {
         cerr << "Then use the following command:" << endl;
         cerr << "cd demo/TensorRT/cpp/build" << endl;
         cerr << "./bytetrack ../../../../YOLOX_outputs/yolox_s_mix_det/model_trt.engine -i ../../../../videos/palace.mp4  // deserialize file and run inference" << std::endl;
+        cerr << "./bytetrack ../../../../YOLOX_outputs/yolox_s_mix_det/model_trt.engine -i ../../../../videos/palace.mp4 [suffix] [fps]  // deserialize file and run inference" << std::endl;
         return -1;
     }
     const string input_video_path {argv[3]};
+    const string output_suffix{argc >= 5 ? argv[4] : "camera"};
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -444,13 +476,55 @@ int main(int argc, char** argv) {
 
 	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
 	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
-    int fps = cap.get(CAP_PROP_FPS);
+    int fps = argc >= 6 ? std::atoi(argv[5]) : cap.get(CAP_PROP_FPS);
+    cout << "fps: " << fps << endl;
     long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
     cout << "Total frames: " << nFrame << endl;
 
-    VideoWriter writer("demo.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
+    auto create_vid_writer = [&](const std::time_t current_time) {
+        const auto lt = std::localtime(&current_time);
+        char c_timestamp[20];
+        std::strftime(c_timestamp, sizeof(c_timestamp), "%Y-%m-%d_%H-%M-%S", lt);
+        std::string timestamp(c_timestamp);
 
-    signal(SIGINT, intHandler);
+        // Save folder: output_suffix/Y-m-d/
+        std::string save_folder = fs::path(output_suffix) / fs::path(timestamp.substr(0, timestamp.find("_")));
+        fs::create_directories(save_folder);
+        std::string save_path = "";
+        save_path = fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4");
+        cout << "video save_path is " << save_path << endl;
+        VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
+
+
+        std::string counts_filename = fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv");
+        std::ofstream counts_file(counts_filename);
+        cout << "counts save_path is " << counts_filename << endl;
+
+        return std::make_tuple(timestamp, std::move(writer), std::move(counts_file));
+    };
+
+    auto [timestamp, writer, counts_file] = create_vid_writer(std::time(nullptr));
+
+    signal(SIGINT, intHandler); // Exit gracefully
+    
+    /** Counting setup **/
+    std::unordered_map<int, std::tuple<int, LastDir>> num_ids;
+    // IDs that are countable
+    std::vector<std::vector<std::string>> counted_ids;
+
+    // TODO: Needs overhaul of a proper counting algorithm like Line-of-Interest (LoI)
+    int hist_thresh = 1;
+    double horiz_thresh = 0.9; // Forces rectangular bounding boxes (Rect ratio)
+    auto count_thresh = 0.2;
+
+    // Counting thresholds in respective directions in the field of view
+    double right_dir_thresh = img_w * count_thresh;
+    double left_dir_thresh = img_w * (1.0 - count_thresh);
+
+    bool check_split = false;
+    auto start_split_time = chrono::system_clock::now();
+
+    int num_empty = 0;
 
     Mat img;
     BYTETracker tracker(fps, 30);
@@ -464,15 +538,17 @@ int main(int argc, char** argv) {
         num_frames ++;
         if (num_frames % 20 == 0)
         {
-            running_fps += num_frames * 1000000 / total_ms;
-            running_fps /= 2;
+            running_fps = num_frames / (total_ms / 1000000.0);
             cout << "Processing frame " << num_frames << " (" << running_fps << " fps)" << endl;
-            num_frames = 0;
-            total_ms = 0;
         }
 		if (img.empty())
 			break;
         Mat pr_img = static_resize(img);
+        // Split videos every approx. hour
+        if (!check_split && (chrono::system_clock::now() - start_split_time) > 
+                chrono::hours(1)) check_split = true;
+
+        num_empty++;
         
         float* blob;
         blob = blobFromImage(pr_img);
@@ -489,12 +565,36 @@ int main(int argc, char** argv) {
 
         for (int i = 0; i < output_stracks.size(); i++)
 		{
+            num_empty = 0; // A detection exists
 			vector<float> tlwh = output_stracks[i].tlwh;
-			bool vertical = tlwh[2] / tlwh[3] > 1.6;
-			if (tlwh[2] * tlwh[3] > 20 && !vertical)
+            auto tid = output_stracks[i].track_id;
+			bool horizontal = tlwh[2] / tlwh[3] > horiz_thresh;
+			if (tlwh[2] * tlwh[3] > 20 && horizontal)
 			{
-				Scalar s = tracker.get_color(output_stracks[i].track_id);
-				putText(img, format("%d", output_stracks[i].track_id), Point(tlwh[0], tlwh[1] - 5), 
+                if (num_ids.count(tid)) num_ids[tid] = std::make_tuple(1, LastDir::NONE);
+                else {
+                    auto& tid_count = std::get<0>(num_ids[tid]);
+                    auto& tid_ldir = std::get<1>(num_ids[tid]);
+                    tid_count++;
+
+                    const auto past_left = tlwh[0] + tlwh[2] < left_dir_thresh;
+                    const auto past_right = tlwh[0] < right_dir_thresh;
+                    if (past_left || past_right) {
+                        const auto countable = tid_count > hist_thresh;
+                        if (past_left && tid_ldir != LastDir::LEFT && countable) {
+                            counted_ids.push_back({timestamp, std::to_string(num_frames), 
+                                    std::to_string(tid), VAL_LEFT});
+                            tid_ldir = LastDir::LEFT;
+                        } else if (past_right && tid_ldir != LastDir::RIGHT && countable) {
+                            counted_ids.push_back({timestamp, std::to_string(num_frames), 
+                                    std::to_string(tid), VAL_RIGHT});
+                            tid_ldir = LastDir::RIGHT;
+                        }
+                    }
+                }
+
+				Scalar s = tracker.get_color(tid);
+				putText(img, format("%d", tid), Point(tlwh[0], tlwh[1] - 5), 
                         0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
                 rectangle(img, Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
 			}
@@ -502,8 +602,18 @@ int main(int argc, char** argv) {
         putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
                 Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
         writer.write(img);
+        write_csv(counted_ids, counts_file);
+        counted_ids.clear();
 
         delete blob;
+
+        if (check_split && num_empty > fps) { // Wait for one second of empty frames
+            counts_file.close();
+            std::tie(timestamp, writer, counts_file) = create_vid_writer(std::time(nullptr));
+            check_split = false;
+            num_frames = 0;
+            total_ms = 0;
+        }
     }
     cap.release();
     cout << "FPS: " << running_fps << endl;
