@@ -478,8 +478,13 @@ int main(int argc, char** argv) {
 	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
     int fps = argc >= 6 ? std::atoi(argv[5]) : cap.get(CAP_PROP_FPS);
     cout << "fps: " << fps << endl;
-    long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
-    cout << "Total frames: " << nFrame << endl;
+
+    std::string rtsp_prefix = "rtsp";
+    const auto check_prefix = std::mismatch(rtsp_prefix.begin(), rtsp_prefix.end(), input_video_path.begin());
+    if (check_prefix.first != rtsp_prefix.end()) {
+        long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
+        cout << "Total frames: " << nFrame << endl;
+    }
 
     auto create_vid_writer = [&](const std::time_t current_time) {
         const auto lt = std::localtime(&current_time);
