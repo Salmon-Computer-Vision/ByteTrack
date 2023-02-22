@@ -9,7 +9,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <ctime>
-#include <filesystem>
+#include <boost/filesystem.hpp>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
@@ -32,7 +32,7 @@
 
 using namespace nvinfer1;
 
-namespace fs = std::filesystem;
+namespace fs = boost::filesystem;
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_W = 640;
@@ -488,15 +488,15 @@ int main(int argc, char** argv) {
         std::string timestamp(c_timestamp);
 
         // Save folder: output_suffix/Y-m-d/
-        std::string save_folder = fs::path(output_suffix) / fs::path(timestamp.substr(0, timestamp.find("_")));
+        std::string save_folder = (fs::path(output_suffix) / timestamp.substr(0, timestamp.find("_"))).string();
         fs::create_directories(save_folder);
         std::string save_path = "";
-        save_path = fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4");
+        save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4")).string();
         cout << "video save_path is " << save_path << endl;
         VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
 
 
-        std::string counts_filename = fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv");
+        std::string counts_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv")).string();
         std::ofstream counts_file(counts_filename);
         cout << "counts save_path is " << counts_filename << endl;
 

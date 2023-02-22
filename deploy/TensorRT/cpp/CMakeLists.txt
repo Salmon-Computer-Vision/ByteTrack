@@ -29,11 +29,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Ofast -Wfatal-errors -
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+find_package(Boost COMPONENTS filesystem REQUIRED)
+
 file(GLOB My_Source_Files ${PROJECT_SOURCE_DIR}/src/*.cpp)
 add_executable(bytetrack ${My_Source_Files})
-target_link_libraries(bytetrack nvinfer)
-target_link_libraries(bytetrack cudart)
-target_link_libraries(bytetrack ${OpenCV_LIBS})
+target_link_libraries(bytetrack PUBLIC nvinfer)
+target_link_libraries(bytetrack PUBLIC cudart)
+target_link_libraries(bytetrack PUBLIC ${OpenCV_LIBS})
+target_link_libraries(bytetrack PRIVATE Boost::filesystem)
 
 add_definitions(-O2 -pthread)
 
