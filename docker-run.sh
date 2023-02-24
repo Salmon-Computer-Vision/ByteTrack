@@ -20,5 +20,5 @@ sudo docker run -i --rm --runtime nvidia \
     -e DISPLAY=$DISPLAY \
     --privileged \
     $docker_image \
-    ../deploy/TensorRT/cpp/build/bytetrack ../deploy/TensorRT/cpp/model_trt.engine \
+    ../deploy/TensorRT/cpp/build/bytetrack ./yolox_nano_salmon/model_trt.engine \
     -i "${input}" $prefix $fps

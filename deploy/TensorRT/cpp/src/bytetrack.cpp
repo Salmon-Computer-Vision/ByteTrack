@@ -493,22 +493,27 @@ int main(int argc, char** argv) {
         std::string timestamp(c_timestamp);
 
         // Save folder: output_suffix/Y-m-d/
-        std::string save_folder = (fs::path(output_suffix) / timestamp.substr(0, timestamp.find("_"))).string();
+        const std::string save_folder = (fs::path(output_suffix) / timestamp.substr(0, timestamp.find("_"))).string();
         fs::create_directories(save_folder);
-        std::string save_path = "";
-        save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4")).string();
-        cout << "video save_path is " << save_path << endl;
-        VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
+
+        const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix)).string();
+        const auto boxes_save_path = save_path + "_boxes.mp4";
+        const auto raw_save_path = save_path + "_raw.mp4";
+
+        cout << "video with boxes save_path is " << boxes_save_path << endl;
+        cout << "raw video save_path is " << raw_save_path << endl;
+        VideoWriter writer(boxes_save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
+        VideoWriter raw_writer(raw_save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
 
 
         std::string counts_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv")).string();
         std::ofstream counts_file(counts_filename);
         cout << "counts save_path is " << counts_filename << endl;
 
-        return std::make_tuple(timestamp, std::move(writer), std::move(counts_file));
+        return std::make_tuple(timestamp, std::move(writer), std::move(raw_writer), std::move(counts_file));
     };
 
-    auto [timestamp, writer, counts_file] = create_vid_writer(std::time(nullptr));
+    auto [timestamp, writer, raw_writer, counts_file] = create_vid_writer(std::time(nullptr));
 
     signal(SIGINT, intHandler); // Exit gracefully
     
@@ -549,6 +554,7 @@ int main(int argc, char** argv) {
         }
 		if (img.empty())
 			break;
+        raw_writer.write(img);
         Mat pr_img = static_resize(img);
         // Split videos every approx. hour
         if (!check_split && (chrono::system_clock::now() - start_split_time) > 
@@ -616,7 +622,7 @@ int main(int argc, char** argv) {
         const auto elapsed = chrono::system_clock::now() - start_split_time;
         if (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps)) { // Wait for one second of empty frames
             counts_file.close();
-            std::tie(timestamp, writer, counts_file) = create_vid_writer(std::time(nullptr));
+            std::tie(timestamp, writer, raw_writer, counts_file) = create_vid_writer(std::time(nullptr));
             check_split = false;
             start_split_time = chrono::system_clock::now();
             num_frames = 0;
