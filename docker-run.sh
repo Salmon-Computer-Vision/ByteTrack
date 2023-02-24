@@ -7,7 +7,7 @@ fps=15
 bytetrack_home=/home/salmonjetson/ByteTrack
 
 # Run ByteTrack on input outputting to the YOLOX_outputs folder into the $prefix folder
-sudo docker run -it --rm --runtime nvidia \
+sudo docker run -i --rm --runtime nvidia \
     -v ${bytetrack_home}/pretrained:/ByteTrack/pretrained \
     -v ${bytetrack_home}/datasets:/ByteTrack/datasets \
     -v ${bytetrack_home}/YOLOX_outputs:/ByteTrack/YOLOX_outputs \
