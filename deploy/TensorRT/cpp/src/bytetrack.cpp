@@ -509,7 +509,7 @@ int main(int argc, char** argv) {
 
         std::string tracks_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_tracks.csv")).string();
         std::ofstream tracks_file(tracks_filename);
-        cout << "tracks save_path is " << counts_filename << endl;
+        cout << "tracks save_path is " << tracks_filename << endl;
 
         return std::make_tuple(timestamp, std::move(writer), std::move(counts_file), std::move(tracks_file));
     };
