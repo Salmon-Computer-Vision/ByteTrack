@@ -507,10 +507,14 @@ int main(int argc, char** argv) {
         std::ofstream counts_file(counts_filename);
         cout << "counts save_path is " << counts_filename << endl;
 
-        return std::make_tuple(timestamp, std::move(writer), std::move(counts_file));
+        std::string tracks_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_tracks.csv")).string();
+        std::ofstream tracks_file(tracks_filename);
+        cout << "tracks save_path is " << counts_filename << endl;
+
+        return std::make_tuple(timestamp, std::move(writer), std::move(counts_file), std::move(tracks_file));
     };
 
-    auto [timestamp, writer, counts_file] = create_vid_writer(std::time(nullptr));
+    auto [timestamp, writer, counts_file, tracks_file] = create_vid_writer(std::time(nullptr));
 
     signal(SIGINT, intHandler); // Exit gracefully
     
@@ -575,7 +579,8 @@ int main(int argc, char** argv) {
 		{
             num_empty = 0; // A detection exists
 			vector<float> tlwh = output_stracks[i].tlwh;
-            auto tid = output_stracks[i].track_id;
+            const auto tid = output_stracks[i].track_id;
+            const auto score = output_stracks[i].score;
 			bool horizontal = tlwh[2] / tlwh[3] > horiz_thresh;
 			if (tlwh[2] * tlwh[3] > 20 && horizontal)
 			{
@@ -608,6 +613,14 @@ int main(int argc, char** argv) {
                     rectangle(img, Rect(tlwh[0], tlwh[1], tlwh[2], tlwh[3]), s, 2);
                 }
 			}
+
+            std::vector<std::vector<std::string>> track{{
+                    to_string(num_frames), to_string(tid), 
+                    to_string(tlwh[0]), to_string(tlwh[1]), 
+                    to_string(tlwh[2]), to_string(tlwh[3]), 
+                    to_string(score), "-1", "-1"
+                }};
+            write_csv(track, tracks_file);
 		}
         if (VIDEO_BOXES) {
             putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
@@ -622,7 +635,7 @@ int main(int argc, char** argv) {
         const auto elapsed = chrono::system_clock::now() - start_split_time;
         if (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps)) { // Wait for one second of empty frames
             counts_file.close();
-            std::tie(timestamp, writer, counts_file) = create_vid_writer(std::time(nullptr));
+            std::tie(timestamp, writer, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
             check_split = false;
             start_split_time = chrono::system_clock::now();
             num_frames = 0;
