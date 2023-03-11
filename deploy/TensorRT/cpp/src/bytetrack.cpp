@@ -511,10 +511,10 @@ int main(int argc, char** argv) {
         std::ofstream tracks_file(tracks_filename);
         cout << "tracks save_path is " << tracks_filename << endl;
 
-        return std::make_tuple(timestamp, std::move(writer), std::move(counts_file), std::move(tracks_file));
+        return std::make_tuple(timestamp, std::move(writer), save_path, std::move(counts_file), std::move(tracks_file));
     };
 
-    auto [timestamp, writer, counts_file, tracks_file] = create_vid_writer(std::time(nullptr));
+    auto [timestamp, writer, save_path, counts_file, tracks_file] = create_vid_writer(std::time(nullptr));
 
     signal(SIGINT, intHandler); // Exit gracefully
     
@@ -634,9 +634,9 @@ int main(int argc, char** argv) {
 
         const auto elapsed = chrono::system_clock::now() - start_split_time;
         // Recreate writer if inadvertantly closed somehow or Split every 1-1:30
-        if (!writer.isOpened() || (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps))) {
+        if (!fs::exists(save_path) || (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps))) {
             counts_file.close();
-            std::tie(timestamp, writer, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+            std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
             check_split = false;
             start_split_time = chrono::system_clock::now();
             num_frames = 0;
