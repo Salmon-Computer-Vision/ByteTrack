@@ -5,6 +5,7 @@ docker_image=bytetrack:manual
 prefix=river
 fps=15
 bytetrack_home=/home/salmonjetson/ByteTrack
+workspace=/ByteTrack/YOLOX_outputs
 
 # Run ByteTrack on input outputting to the YOLOX_outputs folder into the $prefix folder
 sudo docker run -i --rm --runtime nvidia \
@@ -12,7 +13,7 @@ sudo docker run -i --rm --runtime nvidia \
     -v ${bytetrack_home}/datasets:/ByteTrack/datasets \
     -v ${bytetrack_home}/YOLOX_outputs:/ByteTrack/YOLOX_outputs \
     -v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
-    -w /ByteTrack/YOLOX_outputs \
+    -w "$workspace" \
     --device /dev/video0:/dev/video0:mwr \
     --net=host \
     --name "$name" \
