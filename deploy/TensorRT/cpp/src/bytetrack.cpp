@@ -633,7 +633,8 @@ int main(int argc, char** argv) {
         delete blob;
 
         const auto elapsed = chrono::system_clock::now() - start_split_time;
-        if (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps)) { // Wait for one second of empty frames
+        // Recreate writer if inadvertantly closed somehow or Split every 1-1:30
+        if (!writer.isOpened() || (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps))) {
             counts_file.close();
             std::tie(timestamp, writer, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
             check_split = false;
