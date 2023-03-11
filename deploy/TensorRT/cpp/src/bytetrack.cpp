@@ -1,4 +1,5 @@
 #include <fstream>
+#include <thread>
 #include <iostream>
 #include <sstream>
 #include <numeric>
@@ -635,12 +636,18 @@ int main(int argc, char** argv) {
         const auto elapsed = chrono::system_clock::now() - start_split_time;
         // Recreate writer if inadvertantly closed somehow or Split every 1-1:30
         if (!fs::exists(save_path) || (check_split && (elapsed >= (chrono::hours(1) + chrono::minutes(30)) || num_empty > fps))) {
-            counts_file.close();
-            std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
-            check_split = false;
-            start_split_time = chrono::system_clock::now();
-            num_frames = 0;
-            total_ms = 0;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            try {
+                counts_file.close();
+                std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+                check_split = false;
+                start_split_time = chrono::system_clock::now();
+                num_frames = 0;
+                total_ms = 0;
+            } catch (const fs::filesystem_error& ex) {
+                std::cerr << "File system error: " << ex.what() << endl;
+            }
         }
     }
     counts_file.close();
