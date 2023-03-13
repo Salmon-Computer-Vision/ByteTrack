@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 name=$1
 input=$2
-docker_image=bytetrack:manual
+
+# Variables
 prefix=river
 fps=15
+raspi_ip=192.168.1.98
+
+# Constants
+docker_image=bytetrack:manual
 bytetrack_home=/home/salmonjetson/ByteTrack
 workspace=/ByteTrack/YOLOX_outputs
 
@@ -22,4 +27,4 @@ sudo docker run -i --rm --runtime nvidia \
     -e DISPLAY=$DISPLAY \
     --privileged \
     $docker_image \
-    ../tools/run_bytetrack.sh "${input}" "$prefix" $fps
+    ../tools/run_bytetrack.sh "${input}" "$prefix" $fps $raspi_ip
