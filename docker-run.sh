@@ -13,6 +13,7 @@ bytetrack_home=/home/salmonjetson/ByteTrack
 workspace=/ByteTrack/YOLOX_outputs
 
 mkdir -p "${bytetrack_home}"/YOLOX_outputs/track_outputs
+sudo chattr +i "${bytetrack_home}"/YOLOX_outputs/track_outputs
 
 # Run ByteTrack on input outputting to the YOLOX_outputs folder into the $prefix folder
 sudo docker run -i --rm --runtime nvidia \
