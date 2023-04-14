@@ -11,8 +11,8 @@ sshfs -nN \
     -o ExitOnForwardFailure=yes \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
-	-o IdentityFile=~/.ssh/revtunnel_id_rsa \
-	lockedsaphen@${raspi_ip}:/media/usb0/ track_outputs/
+    -o IdentityFile=~/.ssh/revtunnel_id_rsa \
+    lockedsaphen@${raspi_ip}:/media/usb0/ track_outputs/
 
 cd track_outputs
 
