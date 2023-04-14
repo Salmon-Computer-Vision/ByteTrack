@@ -8,7 +8,6 @@ docker_image=bytetrack:manual
 sshfs -nN \
     -o ServerAliveInterval=30 \
     -o ServerAliveCountMax=3 \
-    -o ExitOnForwardFailure=yes \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
     -o IdentityFile=~/.ssh/revtunnel_id_rsa \
