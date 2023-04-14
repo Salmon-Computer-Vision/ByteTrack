@@ -37,6 +37,7 @@ target_link_libraries(bytetrack PUBLIC nvinfer)
 target_link_libraries(bytetrack PUBLIC cudart)
 target_link_libraries(bytetrack PUBLIC ${OpenCV_LIBS})
 target_link_libraries(bytetrack PRIVATE Boost::filesystem)
+target_link_libraries(bytetrack PRIVATE pthread)
 
 add_definitions(-O2 -pthread)
 

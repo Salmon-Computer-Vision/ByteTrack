@@ -1,5 +1,6 @@
 #include <fstream>
 #include <thread>
+#include <condition_variable>
 #include <iostream>
 #include <sstream>
 #include <numeric>
@@ -427,24 +428,8 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
     }
 }
 
-void receive_frames(const std::string& input_video_path, const int fps_in, std::queue<Mat>& q_cam, 
-        std::mutex mutex_cam, std::conditional_variable cond_cam) {
-    VideoCapture cap(input_video_path);
-	if (!cap.isOpened())
-		return 0;
-
-	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
-	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
-    int fps = fps_in != 0 ? fps_in : cap.get(CAP_PROP_FPS);
-    cout << "fps: " << fps << endl;
-
-    std::string rtsp_prefix = "rtsp";
-    const auto check_prefix = std::mismatch(rtsp_prefix.begin(), rtsp_prefix.end(), input_video_path.begin());
-    if (check_prefix.first != rtsp_prefix.end()) {
-        long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
-        cout << "Total frames: " << nFrame << endl;
-    }
-
+void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, 
+        std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
 	while (keepRunning)
     {
@@ -506,6 +491,22 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
+    VideoCapture cap(input_video_path);
+	if (!cap.isOpened())
+		return 0;
+
+	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
+	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
+    const int fps = argc >= 6 ? std::atoi(argv[5]) : cap.get(CAP_PROP_FPS);
+    cout << "fps: " << fps << endl;
+
+    std::string rtsp_prefix = "rtsp";
+    const auto check_prefix = std::mismatch(rtsp_prefix.begin(), rtsp_prefix.end(), input_video_path.begin());
+    if (check_prefix.first != rtsp_prefix.end()) {
+        long nFrame = static_cast<long>(cap.get(CAP_PROP_FRAME_COUNT));
+        cout << "Total frames: " << nFrame << endl;
+    }
+
     auto create_vid_writer = [&](const std::time_t current_time) {
         const auto lt = std::localtime(&current_time);
         char c_timestamp[20];
@@ -558,10 +559,9 @@ int main(int argc, char** argv) {
 
     std::queue<Mat> q_cam;
     std::mutex mutex_cam;
-    std::conditional_variable cond_cam;
+    std::condition_variable cond_cam;
 
-    const int fps_in = argc >= 6 ? std::atoi(argv[5]) : 0;
-    std::thread thr_cam(receive_frames, input_video_path, fps_in, q_cam, mutex_cam, cond_cam);
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(mutex_cam), std::ref(cond_cam));
 
     Mat img;
     BYTETracker tracker(fps, 30);
@@ -573,7 +573,7 @@ int main(int argc, char** argv) {
         { 
             // Wait for a frame in the queue and get it
             std::unique_lock<std::mutex> lock(mutex_cam);
-            cond_cam.wait(lock, []{ return !q_cam.empty() || !keepRunning; });
+            cond_cam.wait(lock, [&]{ return !q_cam.empty() || !keepRunning; });
             if (!keepRunning && q_cam.empty()) break;
 
             img = q_cam.front();
