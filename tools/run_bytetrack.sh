@@ -5,7 +5,14 @@ fps=$3
 raspi_ip=$4
 docker_image=bytetrack:manual
 
-sshfs lockedsaphen@${raspi_ip}:/media/usb0/ track_outputs/ -o IdentityFile=~/.ssh/revtunnel_id_rsa
+sshfs -nN \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -o ExitOnForwardFailure=yes \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+	-o IdentityFile=~/.ssh/revtunnel_id_rsa \
+	lockedsaphen@${raspi_ip}:/media/usb0/ track_outputs/
 
 cd track_outputs
 
