@@ -5,8 +5,7 @@ fps=$3
 raspi_ip=$4
 docker_image=bytetrack:manual
 
-sshfs -nN \
-    -o ServerAliveInterval=30 \
+sshfs -o ServerAliveInterval=30 \
     -o ServerAliveCountMax=3 \
     -o StrictHostKeyChecking=no \
     -o UserKnownHostsFile=/dev/null \
