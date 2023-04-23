@@ -581,7 +581,7 @@ int main(int argc, char** argv) {
         q_cam.pop();
 
         num_frames ++;
-        if (num_frames % 20 == 0)
+        if (num_frames % fps == 0)
         {
             counts_file.flush();
             running_fps = num_frames / (total_ms / 1000000.0);
