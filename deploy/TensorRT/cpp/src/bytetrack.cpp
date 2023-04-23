@@ -575,10 +575,10 @@ int main(int argc, char** argv) {
             std::unique_lock<std::mutex> lock(mutex_cam);
             cond_cam.wait(lock, [&]{ return !q_cam.empty() || !keepRunning; });
             if (!keepRunning && q_cam.empty()) break;
-
-            img = q_cam.front();
-            q_cam.pop();
         }
+
+        img = q_cam.front();
+        q_cam.pop();
 
         num_frames ++;
         if (num_frames % 20 == 0)
