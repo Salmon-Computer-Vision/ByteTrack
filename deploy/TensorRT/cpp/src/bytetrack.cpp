@@ -576,6 +576,7 @@ int main(int argc, char** argv) {
 
         img = q_cam.front();
         q_cam.pop();
+        cout << "Frames left: " << q_cam.size() << endl;
 
         num_frames ++;
         if (num_frames % fps == 0)
