@@ -586,8 +586,6 @@ int main(int argc, char** argv) {
             counts_file.flush();
             running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
             running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
-            total_ms = 0;
-            total_ms_true = 0;
             cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" << endl;
             cout << "Frames left: " << q_cam.size() << endl;
         }
@@ -681,6 +679,8 @@ int main(int argc, char** argv) {
                 check_split = false;
                 start_split_time = chrono::system_clock::now();
                 num_frames = 0;
+                total_ms = 0;
+                total_ms_true = 0;
             } catch (const fs::filesystem_error& ex) {
                 std::cerr << "File system error: " << ex.what() << endl;
             }
