@@ -488,7 +488,7 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
-    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph264depay ! h264parse ! appsink";
+    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
     VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
     //VideoCapture cap(input_video_path);
 	if (!cap.isOpened())
