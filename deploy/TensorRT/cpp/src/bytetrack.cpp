@@ -435,10 +435,7 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
     {
         if(!cap.read(img))
             break;
-        {
-            std::lock_guard<std::mutex> lock(mutex_cam);
-            q_cam.push(img);
-        }
+        q_cam.push(img);
         cond_cam.notify_one();
     }
     keepRunning = false;
