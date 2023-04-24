@@ -26,7 +26,7 @@ link_directories(/opt/tiger/demo/TensorRT-7.2.3.4/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
-find_package(OpenCV)
+find_package(OpenCV 4)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 find_package(Boost COMPONENTS filesystem REQUIRED)
