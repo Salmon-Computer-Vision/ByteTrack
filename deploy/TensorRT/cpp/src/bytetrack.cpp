@@ -520,7 +520,7 @@ int main(int argc, char** argv) {
 
         const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width={"+to_string(img_w)+"},height={"+to_string(img_h)+"},framerate={"+to_string(fps)+"}/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h264enc insert-vui=1 ! h264parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
-        VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h), true);
+        VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
 
         std::string counts_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv")).string();
