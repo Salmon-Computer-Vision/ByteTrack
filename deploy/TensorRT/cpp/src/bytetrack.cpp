@@ -431,12 +431,26 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, 
         std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
+    int total_ms = 0;
+    int num_frames = 0;
+    int running_fps = 0;
 	while (keepRunning)
     {
+        num_frames++;
+        if (num_frames % fps_in == 0)
+        {
+            running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
+            cout << "Receiving frames: " << running_fps << " fps" << endl;
+            num_frames = 0;
+            total_ms = 0;
+        }
+        auto start = chrono::system_clock::now();
         if(!cap.read(img))
             break;
         q_cam.push(img);
         cond_cam.notify_one();
+        auto end = chrono::system_clock::now();
+        total_ms += chrono::duration_cast<chrono::microseconds>(end - start).count();
     }
     keepRunning = false;
     cond_cam.notify_all();
@@ -488,6 +502,8 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
+    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph264depay ! h264parse ! appsink";
+    //VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
     VideoCapture cap(input_video_path);
 	if (!cap.isOpened())
 		return 0;
@@ -518,7 +534,7 @@ int main(int argc, char** argv) {
 
         cout << "video save_path is " << save_path << endl;
 
-        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width={"+to_string(img_w)+"},height={"+to_string(img_h)+"},framerate={"+to_string(fps)+"}/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h264enc insert-vui=1 ! h264parse ! qtmux ! filesink location=" + save_path;
+        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h264enc insert-vui=1 ! h264parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
