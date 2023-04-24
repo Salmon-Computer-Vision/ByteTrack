@@ -428,14 +428,30 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
     }
 }
 
-void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, 
+void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<vector<STrack>>& q_cam, 
         std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
 	while (keepRunning)
     {
         if(!cap.read(img))
             break;
-        q_cam.push(img);
+
+        Mat pr_img = static_resize(img);
+        
+        float* blob;
+        blob = blobFromImage(pr_img);
+        float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
+        
+        // run inference
+        auto start = chrono::system_clock::now();
+        doInference(*context, blob, prob, output_size, pr_img.size());
+        vector<Object> objects;
+        decode_outputs(prob, objects, scale, img_w, img_h);
+        vector<STrack> output_stracks = tracker.update(objects);
+        auto end = chrono::system_clock::now();
+        total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
+
+        q_cam.push(std::move(output_stracks));
         cond_cam.notify_one();
     }
     keepRunning = false;
@@ -554,7 +570,7 @@ int main(int argc, char** argv) {
 
     int num_empty = 0;
 
-    std::queue<Mat> q_cam;
+    std::queue<vector<STrack>> q_cam;
     std::mutex mutex_cam;
     std::condition_variable cond_cam;
 
@@ -589,27 +605,11 @@ int main(int argc, char** argv) {
             cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" << endl;
             cout << "Frames left: " << q_cam.size() << endl;
         }
-		if (img.empty())
-			break;
-        Mat pr_img = static_resize(img);
         // Split videos every approx. hour
         if (!check_split && (chrono::system_clock::now() - start_split_time) > 
                 chrono::hours(1)) check_split = true;
 
         num_empty++;
-        
-        float* blob;
-        blob = blobFromImage(pr_img);
-        float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
-        
-        // run inference
-        auto start = chrono::system_clock::now();
-        doInference(*context, blob, prob, output_size, pr_img.size());
-        vector<Object> objects;
-        decode_outputs(prob, objects, scale, img_w, img_h);
-        vector<STrack> output_stracks = tracker.update(objects);
-        auto end = chrono::system_clock::now();
-        total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
 
         for (int i = 0; i < output_stracks.size(); i++)
 		{
