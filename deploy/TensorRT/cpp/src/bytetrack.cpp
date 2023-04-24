@@ -564,9 +564,12 @@ int main(int argc, char** argv) {
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
     int total_ms = 0;
+    int total_ms_true = 0;
     int running_fps = 0;
+    int running_fps_true = 0;
 	while (keepRunning)
     {
+        auto start_true = chrono::system_clock::now();
         { 
             // Wait for a frame in the queue and get it
             std::unique_lock<std::mutex> lock(mutex_cam);
@@ -581,8 +584,11 @@ int main(int argc, char** argv) {
         if (num_frames % fps == 0)
         {
             counts_file.flush();
-            running_fps = num_frames / (total_ms / 1000000.0);
-            cout << "Processing frame " << num_frames << " (" << running_fps << " fps)" << endl;
+            running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
+            running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
+            total_ms = 0;
+            total_ms_true = 0;
+            cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" << endl;
             cout << "Frames left: " << q_cam.size() << endl;
         }
 		if (img.empty())
@@ -675,11 +681,12 @@ int main(int argc, char** argv) {
                 check_split = false;
                 start_split_time = chrono::system_clock::now();
                 num_frames = 0;
-                total_ms = 0;
             } catch (const fs::filesystem_error& ex) {
                 std::cerr << "File system error: " << ex.what() << endl;
             }
         }
+        auto end_true = chrono::system_clock::now();
+        total_ms_true += chrono::duration_cast<chrono::microseconds>(end_true - start_true).count();
     }
     counts_file.close();
     thr_cam.join();
