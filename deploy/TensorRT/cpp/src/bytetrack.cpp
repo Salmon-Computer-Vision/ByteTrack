@@ -576,7 +576,6 @@ int main(int argc, char** argv) {
 
         img = q_cam.front();
         q_cam.pop();
-        cout << "Frames left: " << q_cam.size() << endl;
 
         num_frames ++;
         if (num_frames % fps == 0)
@@ -584,6 +583,7 @@ int main(int argc, char** argv) {
             counts_file.flush();
             running_fps = num_frames / (total_ms / 1000000.0);
             cout << "Processing frame " << num_frames << " (" << running_fps << " fps)" << endl;
+            cout << "Frames left: " << q_cam.size() << endl;
         }
 		if (img.empty())
 			break;
