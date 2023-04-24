@@ -431,26 +431,12 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, 
         std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
-    int total_ms = 0;
-    int num_frames = 0;
-    int running_fps = 0;
 	while (keepRunning)
     {
-        num_frames++;
-        if (num_frames % fps_in == 0)
-        {
-            running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
-            cout << "Receiving frames: " << running_fps << " fps" << endl;
-            num_frames = 0;
-            total_ms = 0;
-        }
-        auto start = chrono::system_clock::now();
         if(!cap.read(img))
             break;
         q_cam.push(img);
         cond_cam.notify_one();
-        auto end = chrono::system_clock::now();
-        total_ms += chrono::duration_cast<chrono::microseconds>(end - start).count();
     }
     keepRunning = false;
     cond_cam.notify_all();
@@ -503,8 +489,8 @@ int main(int argc, char** argv) {
     static float* prob = new float[output_size];
 
     const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph264depay ! h264parse ! appsink";
-    //VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
-    VideoCapture cap(input_video_path);
+    VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
+    //VideoCapture cap(input_video_path);
 	if (!cap.isOpened())
 		return 0;
 
