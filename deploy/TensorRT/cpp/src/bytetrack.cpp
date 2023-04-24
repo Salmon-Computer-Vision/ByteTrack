@@ -568,6 +568,7 @@ int main(int argc, char** argv) {
     int num_frames = 0;
     int total_ms = 0;
     int total_ms_true = 0;
+    int total_ms_profile = 0;
     int running_fps = 0;
     int running_fps_true = 0;
 	while (keepRunning)
@@ -589,7 +590,8 @@ int main(int argc, char** argv) {
             counts_file.flush();
             running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
             running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
-            cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" << endl;
+            cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
+                << " (" << num_frames / (total_ms_profile / 1000000.0)  << " fps)"<< endl;
             cout << "Frames left: " << q_cam.size() << endl;
         }
 		if (img.empty())
@@ -614,6 +616,7 @@ int main(int argc, char** argv) {
         auto end = chrono::system_clock::now();
         total_ms = total_ms + chrono::duration_cast<chrono::microseconds>(end - start).count();
 
+        auto start_profile = chrono::system_clock::now();
         for (int i = 0; i < output_stracks.size(); i++)
 		{
             num_empty = 0; // A detection exists
@@ -668,6 +671,8 @@ int main(int argc, char** argv) {
         writer.write(img);
         write_csv(counted_ids, counts_file);
         counted_ids.clear();
+        auto end_profile = chrono::system_clock::now();
+        total_ms_profile += chrono::duration_cast<chrono::microseconds>(end_profile - start_profile).count();
 
         delete blob;
 
