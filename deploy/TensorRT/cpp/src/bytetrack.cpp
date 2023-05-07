@@ -579,6 +579,9 @@ int main(int argc, char** argv) {
 
     std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(writer), std::ref(mutex_cam), std::ref(cond_cam));
 
+    const auto SPLIT_TIME = chrono::hours(1);
+    //const auto MAX_SPLIT_TIME = chrono::hourse(1) + chrono::minutes(30);
+    const auto MAX_SPLIT_TIME = chrono::minutes(1);
     Mat img;
     BYTETracker tracker(fps, 30);
     int num_frames = 0;
@@ -597,6 +600,43 @@ int main(int argc, char** argv) {
             std::unique_lock<std::mutex> lock(mutex_cam);
             cond_cam.wait(lock, [&]{ return !q_cam.empty() || !keepRunning; });
             if (!keepRunning && q_cam.empty()) break;
+
+
+            num_empty++;
+            num_frames ++;
+            if (num_frames % fps == 0)
+            {
+                counts_file << std::flush;
+                tracks_file << std::flush;
+                // Split videos every approx. hour
+                if (!check_split && (chrono::system_clock::now() - start_split_time) > 
+                        SPLIT_TIME) check_split = true;
+
+                const auto elapsed = chrono::system_clock::now() - start_split_time;
+                // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
+                if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+                    try {
+                        counts_file.close();
+                        tracks_file.close();
+                        std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+                        start_split_time = chrono::system_clock::now();
+                        check_split = false;
+                        num_frames = 0;
+                        total_ms = 0;
+                        total_ms_true = 0;
+                    } catch (const fs::filesystem_error& ex) {
+                        std::cerr << "File system error: " << ex.what() << endl;
+                    }
+                }
+
+                running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
+                running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
+                cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
+                    << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << num_frames / (total_ms_before / 1000000.0)  << " before fps)" << endl;
+                cout << "Frames left: " << q_cam.size() << endl;
+            }
         }
 
         img = q_cam.front();
@@ -604,44 +644,8 @@ int main(int argc, char** argv) {
         auto blob = q_blob.front();
         q_blob.pop();
 
-        num_frames ++;
-        if (num_frames % fps == 0)
-        {
-            counts_file << std::flush;
-            tracks_file << std::flush;
-            // Split videos every approx. hour
-            if (!check_split && (chrono::system_clock::now() - start_split_time) > 
-                    chrono::hours(1)) check_split = true;
-
-            const auto elapsed = chrono::system_clock::now() - start_split_time;
-            // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
-            if (!tracks_file || (check_split && (num_empty > fps || elapsed >= (chrono::hours(1) + chrono::minutes(30))))) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-
-                try {
-                    counts_file.close();
-                    tracks_file.close();
-                    std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
-                    start_split_time = chrono::system_clock::now();
-                    check_split = false;
-                    num_frames = 0;
-                    total_ms = 0;
-                    total_ms_true = 0;
-                } catch (const fs::filesystem_error& ex) {
-                    std::cerr << "File system error: " << ex.what() << endl;
-                }
-            }
-
-            running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
-            running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
-            cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
-                << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << num_frames / (total_ms_before / 1000000.0)  << " before fps)" << endl;
-            cout << "Frames left: " << q_cam.size() << endl;
-        }
 		if (img.empty())
 			break;
-
-        num_empty++;
 
         float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
 
