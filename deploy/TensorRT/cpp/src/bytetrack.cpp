@@ -609,7 +609,7 @@ int main(int argc, char** argv) {
 
             const auto elapsed = chrono::system_clock::now() - start_split_time;
             // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
-            if (counts_file.bad() || (check_split && (num_empty > fps || elapsed >= (chrono::hours(1) + chrono::minutes(30))))) {
+            if (!fs::exists(save_path) || (check_split && (num_empty > fps || elapsed >= (chrono::hours(1) + chrono::minutes(30))))) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
 
                 try {
