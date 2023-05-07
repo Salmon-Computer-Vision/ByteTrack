@@ -602,18 +602,20 @@ int main(int argc, char** argv) {
         num_frames ++;
         if (num_frames % fps == 0)
         {
-            counts_file.flush();
+            counts_file << std::flush;
+            tracks_file << std::flush;
             // Split videos every approx. hour
             if (!check_split && (chrono::system_clock::now() - start_split_time) > 
                     chrono::hours(1)) check_split = true;
 
             const auto elapsed = chrono::system_clock::now() - start_split_time;
             // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
-            if (!fs::exists(save_path) || (check_split && (num_empty > fps || elapsed >= (chrono::hours(1) + chrono::minutes(30))))) {
+            if (!tracks_file || (check_split && (num_empty > fps || elapsed >= (chrono::hours(1) + chrono::minutes(30))))) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
 
                 try {
                     counts_file.close();
+                    tracks_file.close();
                     std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
                     start_split_time = chrono::system_clock::now();
                     check_split = false;
