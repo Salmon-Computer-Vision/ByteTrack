@@ -429,7 +429,7 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 }
 
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<float*>& q_blob,
-        std::mutex& mutex_cam, std::condition_variable& cond_cam) {
+        VideoWriter& writer, std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
 	while (keepRunning)
     {
@@ -439,6 +439,8 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
         Mat pr_img = static_resize(img);
         float* blob;
         blob = blobFromImage(pr_img);
+
+        writer.write(img);
 
         q_cam.push(img);
         q_blob.push(blob);
@@ -570,7 +572,7 @@ int main(int argc, char** argv) {
     std::mutex mutex_cam;
     std::condition_variable cond_cam;
 
-    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(mutex_cam), std::ref(cond_cam));
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(writer), std::ref(mutex_cam), std::ref(cond_cam));
 
     Mat img;
     BYTETracker tracker(fps, 30);
@@ -681,7 +683,6 @@ int main(int argc, char** argv) {
             putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
                     Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
         }
-        writer.write(img);
         write_csv(counted_ids, counts_file);
         counted_ids.clear();
         auto end_profile = chrono::system_clock::now();
