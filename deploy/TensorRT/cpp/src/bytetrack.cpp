@@ -571,11 +571,13 @@ int main(int argc, char** argv) {
     int total_ms = 0;
     int total_ms_true = 0;
     int total_ms_profile = 0;
+    int total_ms_before = 0;
     int running_fps = 0;
     int running_fps_true = 0;
 	while (keepRunning)
     {
         auto start_true = chrono::system_clock::now();
+        auto start_before = chrono::system_clock::now();
         { 
             // Wait for a frame in the queue and get it
             std::unique_lock<std::mutex> lock(mutex_cam);
@@ -593,7 +595,7 @@ int main(int argc, char** argv) {
             running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
             running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
             cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
-                << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)"<< endl;
+                << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << num_frames / (total_ms_before / 1000000.0)  << " before fps)" << endl;
             cout << "Frames left: " << q_cam.size() << endl;
         }
 		if (img.empty())
@@ -608,6 +610,9 @@ int main(int argc, char** argv) {
         float* blob;
         blob = blobFromImage(pr_img);
         float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
+
+        auto end_before = chrono::system_clock::now();
+        total_ms_before = total_ms_before + chrono::duration_cast<chrono::microseconds>(end_before - start_before).count();
         
         // run inference
         auto start = chrono::system_clock::now();
