@@ -579,10 +579,8 @@ int main(int argc, char** argv) {
 
     std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(writer), std::ref(mutex_cam), std::ref(cond_cam));
 
-    //const auto SPLIT_TIME = chrono::hours(1);
-    const auto SPLIT_TIME = chrono::minutes(1);
-    //const auto MAX_SPLIT_TIME = chrono::hourse(1) + chrono::minutes(30);
-    const auto MAX_SPLIT_TIME = chrono::minutes(1);
+    const auto SPLIT_TIME = chrono::hours(1);
+    const auto MAX_SPLIT_TIME = chrono::hourse(1) + chrono::minutes(30);
 
     Mat img;
     BYTETracker tracker(fps, 30);
