@@ -618,6 +618,8 @@ int main(int argc, char** argv) {
                 // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
                 if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
+                    std::queue<Mat>().swap(q_cam);
+                    std::queue<float*>().swap(q_blob);
 
                     try {
                         counts_file.close();
