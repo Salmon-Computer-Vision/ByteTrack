@@ -621,18 +621,15 @@ int main(int argc, char** argv) {
                     std::queue<Mat>().swap(q_cam);
                     std::queue<float*>().swap(q_blob);
 
-                    try {
-                        counts_file.close();
-                        tracks_file.close();
-                        std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
-                        start_split_time = chrono::system_clock::now();
-                        check_split = false;
-                        num_frames = 0;
-                        total_ms = 0;
-                        total_ms_true = 0;
-                    } catch (const fs::filesystem_error& ex) {
-                        std::cerr << "File system error: " << ex.what() << endl;
-                    }
+                    // May throw fs::filesystem_error exception and exit program
+                    counts_file.close();
+                    tracks_file.close();
+                    std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+                    start_split_time = chrono::system_clock::now();
+                    check_split = false;
+                    num_frames = 0;
+                    total_ms = 0;
+                    total_ms_true = 0;
                 }
 
                 running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
