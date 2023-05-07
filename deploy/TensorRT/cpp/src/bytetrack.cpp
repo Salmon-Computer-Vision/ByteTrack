@@ -458,6 +458,7 @@ int main(int argc, char** argv) {
     char *trtModelStream{nullptr};
     size_t size{0};
 
+    string encoding_type = "264";
     if (argc >= 4 && string(argv[2]) == "-i") {
         const string engine_file_path {argv[1]};
         ifstream file(engine_file_path, ios::binary);
@@ -469,6 +470,9 @@ int main(int argc, char** argv) {
             assert(trtModelStream);
             file.read(trtModelStream, size);
             file.close();
+        }
+        if (argc >= 7 && string(argv[6]) == "-5") {
+            encoding_type = "265";
         }
     } else {
         cerr << "arguments not right!" << endl;
@@ -496,7 +500,7 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
-    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
+    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph"+encoding_type+"depay ! h"+encoding_type+"parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
     VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
     //VideoCapture cap(input_video_path);
 	if (!cap.isOpened())
@@ -528,7 +532,7 @@ int main(int argc, char** argv) {
 
         cout << "video save_path is " << save_path << endl;
 
-        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h264enc insert-vui=1 ! h264parse ! qtmux ! filesink location=" + save_path;
+        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
