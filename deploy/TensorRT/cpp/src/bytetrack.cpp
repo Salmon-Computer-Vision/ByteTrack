@@ -601,6 +601,10 @@ int main(int argc, char** argv) {
             cond_cam.wait(lock, [&]{ return !q_cam.empty() || !keepRunning; });
             if (!keepRunning && q_cam.empty()) break;
 
+            img = q_cam.front();
+            q_cam.pop();
+            auto blob = q_blob.front();
+            q_blob.pop();
 
             num_empty++;
             num_frames ++;
@@ -637,11 +641,6 @@ int main(int argc, char** argv) {
                 cout << "Frames left: " << q_cam.size() << endl;
             }
         }
-
-        img = q_cam.front();
-        q_cam.pop();
-        auto blob = q_blob.front();
-        q_blob.pop();
 
 		if (img.empty())
 			break;
