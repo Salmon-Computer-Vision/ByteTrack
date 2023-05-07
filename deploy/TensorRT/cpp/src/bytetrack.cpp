@@ -472,6 +472,7 @@ int main(int argc, char** argv) {
             file.close();
         }
         if (argc >= 7 && string(argv[6]) == "-5") {
+            cout << "Using h265 encoding..." << endl;
             encoding_type = "265";
         }
     } else {
