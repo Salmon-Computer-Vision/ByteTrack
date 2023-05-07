@@ -471,7 +471,7 @@ int main(int argc, char** argv) {
             file.read(trtModelStream, size);
             file.close();
         }
-        if (argc >= 7 && string(argv[6]) == "-5") {
+        if (argc >= 7 && string(argv[6]) == "-f") {
             cout << "Using h265 encoding..." << endl;
             encoding_type = "265";
         }
