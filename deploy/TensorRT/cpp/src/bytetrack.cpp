@@ -579,8 +579,10 @@ int main(int argc, char** argv) {
 
     std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(writer), std::ref(mutex_cam), std::ref(cond_cam));
 
-    const auto SPLIT_TIME = chrono::hours(1);
-    const auto MAX_SPLIT_TIME = chrono::hourse(1) + chrono::minutes(30);
+    //const auto SPLIT_TIME = chrono::hours(1);
+    const auto SPLIT_TIME = chrono::minutes(1);
+    //const auto MAX_SPLIT_TIME = chrono::hourse(1) + chrono::minutes(30);
+    const auto MAX_SPLIT_TIME = chrono::minutes(1);
 
     Mat img;
     BYTETracker tracker(fps, 30);
@@ -595,6 +597,7 @@ int main(int argc, char** argv) {
     {
         auto start_true = chrono::system_clock::now();
         auto start_before = chrono::system_clock::now();
+        float* blob;
         { 
             // Wait for a frame in the queue and get it
             std::unique_lock<std::mutex> lock(mutex_cam);
@@ -603,7 +606,7 @@ int main(int argc, char** argv) {
 
             img = q_cam.front();
             q_cam.pop();
-            auto blob = q_blob.front();
+            blob = q_blob.front();
             q_blob.pop();
 
             num_empty++;
