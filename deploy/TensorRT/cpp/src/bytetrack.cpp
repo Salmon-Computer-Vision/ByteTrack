@@ -627,6 +627,7 @@ int main(int argc, char** argv) {
                     // May throw fs::filesystem_error exception and exit program
                     counts_file.close();
                     tracks_file.close();
+                    writer.release();
                     std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
                     start_split_time = chrono::system_clock::now();
                     check_split = false;
