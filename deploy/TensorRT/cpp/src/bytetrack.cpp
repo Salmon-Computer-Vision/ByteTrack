@@ -440,8 +440,6 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
         float* blob;
         blob = blobFromImage(pr_img);
 
-        writer.write(img);
-
         q_cam.push(img);
         q_blob.push(blob);
         cond_cam.notify_one();
@@ -713,6 +711,8 @@ int main(int argc, char** argv) {
             putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
                     Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
         }
+
+        writer.write(img);
         write_csv(counted_ids, counts_file);
         counted_ids.clear();
 
