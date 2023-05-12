@@ -527,9 +527,10 @@ int main(int argc, char** argv) {
         const std::string save_folder = (fs::path(output_suffix) / timestamp.substr(0, timestamp.find("_"))).string();
         fs::create_directories(save_folder);
 
-        const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4")).string();
+        //const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4")).string();
+        const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix)).string();
 
-        cout << "video save_path is " << save_path << endl;
+        cout << "video folder save_path is " << save_path << endl;
 
         const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
@@ -712,7 +713,10 @@ int main(int argc, char** argv) {
                     Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
         }
 
-        writer.write(img);
+        //writer.write(img);
+        stringstream img_name;
+        img_name << "frame_" << setw(6) << setfill('0') << num_frames << ".jpg";
+        imwrite((fs::path(save_path) / fs::path(img_name.str())).string(), img);
         write_csv(counted_ids, counts_file);
         counted_ids.clear();
 
