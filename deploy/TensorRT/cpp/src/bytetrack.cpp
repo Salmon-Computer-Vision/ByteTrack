@@ -429,7 +429,7 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 }
 
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<float*>& q_blob,
-        VideoWriter& writer, std::mutex& mutex_cam, std::condition_variable& cond_cam) {
+        std::mutex& mutex_cam, std::condition_variable& cond_cam) {
     Mat img;
 	while (keepRunning)
     {
@@ -446,6 +446,11 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
     }
     keepRunning = false;
     cond_cam.notify_all();
+}
+
+void write_frames(VideoWriter& writer, std::mutex& mutex_write, std::condition_variable& cond_write) {
+    while(keepRunning) {
+    }
 }
 
 
@@ -575,7 +580,7 @@ int main(int argc, char** argv) {
     std::mutex mutex_cam;
     std::condition_variable cond_cam;
 
-    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(writer), std::ref(mutex_cam), std::ref(cond_cam));
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(mutex_cam), std::ref(cond_cam));
 
     const auto SPLIT_TIME = chrono::hours(1);
     const auto MAX_SPLIT_TIME = chrono::hours(1) + chrono::minutes(30);
