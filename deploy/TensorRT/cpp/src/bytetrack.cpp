@@ -639,6 +639,12 @@ int main(int argc, char** argv) {
                 cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
                     << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << num_frames / (total_ms_before / 1000000.0)  << " before fps)" << endl;
                 cout << "Frames left: " << q_cam.size() << endl;
+
+                if (q_cam.size() > 100) {
+                    cout << "Past threshold... Skipping frames..." << endl;
+                    std::queue<Mat>().swap(q_cam);
+                    std::queue<float*>().swap(q_blob);
+                }
             }
         }
 
