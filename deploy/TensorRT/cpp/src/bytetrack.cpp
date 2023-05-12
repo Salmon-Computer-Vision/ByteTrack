@@ -525,10 +525,10 @@ int main(int argc, char** argv) {
 
         // Save folder: output_suffix/Y-m-d/
         const std::string save_folder = (fs::path(output_suffix) / timestamp.substr(0, timestamp.find("_"))).string();
-        fs::create_directories(save_folder);
 
         //const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + ".mp4")).string();
         const std::string save_path = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix)).string();
+        fs::create_directories(save_path);
 
         cout << "video folder save_path is " << save_path << endl;
 
