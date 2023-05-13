@@ -448,8 +448,12 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
     cond_cam.notify_all();
 }
 
-void write_frames(VideoWriter& writer, std::mutex& mutex_write, std::condition_variable& cond_write) {
+void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mutex_write,
+        std::condition_variable& cond_write) {
     while(keepRunning) {
+        std::unique_lock<std::mutex> lock(mutex_write);
+        cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
+        if (!keepRunning && q_write.empty()) break;
     }
 }
 
