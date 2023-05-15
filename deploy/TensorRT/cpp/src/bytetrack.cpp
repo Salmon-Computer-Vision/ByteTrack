@@ -1,4 +1,5 @@
 #include <fstream>
+#include <mutex>
 #include <thread>
 #include <condition_variable>
 #include <iostream>
@@ -428,8 +429,8 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
     }
 }
 
-void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<float*>& q_blob,
-        std::mutex& mutex_cam, std::condition_variable& cond_cam) {
+void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<Mat>& q_write, 
+        std::queue<float*>& q_blob, std::condition_variable& cond_cam, std::condition_variable& cond_write) {
     Mat img;
 	while (keepRunning)
     {
@@ -440,11 +441,15 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
         float* blob;
         blob = blobFromImage(pr_img);
 
+        q_write.push(img);
+        cond_write.notify_one();
+
         q_cam.push(img);
         q_blob.push(blob);
         cond_cam.notify_one();
     }
     keepRunning = false;
+    cond_write.notify_all();
     cond_cam.notify_all();
 }
 
@@ -454,6 +459,11 @@ void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mut
         std::unique_lock<std::mutex> lock(mutex_write);
         cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
         if (!keepRunning && q_write.empty()) break;
+
+        auto img = q_write.front();
+        q_write.pop();
+
+        writer.write(img);
     }
 }
 
@@ -580,11 +590,15 @@ int main(int argc, char** argv) {
     int num_empty = 0;
 
     std::queue<Mat> q_cam;
+    std::queue<Mat> q_write;
     std::queue<float*> q_blob;
     std::mutex mutex_cam;
+    std::mutex mutex_write;
     std::condition_variable cond_cam;
+    std::condition_variable cond_write;
 
-    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_blob), std::ref(mutex_cam), std::ref(cond_cam));
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), std::ref(cond_cam), std::ref(cond_write));
+    std::thread thr_write(write_frames, std::ref(writer), std::ref(q_write), std::ref(mutex_write), std::ref(cond_write));
 
     const auto SPLIT_TIME = chrono::hours(1);
     const auto MAX_SPLIT_TIME = chrono::hours(1) + chrono::minutes(30);
@@ -634,8 +648,13 @@ int main(int argc, char** argv) {
                     // May throw fs::filesystem_error exception and exit program
                     counts_file.close();
                     tracks_file.close();
-                    writer.release();
-                    std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+
+                    {
+                        std::lock_guard<std::mutex> lock_write(mutex_write);
+                        writer.release();
+                        std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
+                    }
+
                     start_split_time = chrono::system_clock::now();
                     check_split = false;
                     num_frames = 0;
@@ -726,8 +745,6 @@ int main(int argc, char** argv) {
             putText(img, format("frame: %d fps: %d num: %d", num_frames, num_frames * 1000000 / total_ms, output_stracks.size()), 
                     Point(0, 30), 0, 0.6, Scalar(0, 0, 255), 2, LINE_AA);
         }
-
-        writer.write(img);
         write_csv(counted_ids, counts_file);
         counted_ids.clear();
 
