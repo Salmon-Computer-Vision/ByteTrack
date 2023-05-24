@@ -12,6 +12,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <ctime>
+#include <boost/thread/barrier.hpp>
 #include <boost/filesystem.hpp>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
@@ -450,7 +451,7 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
 }
 
 void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mutex_write,
-        std::condition_variable& cond_write) {
+        std::condition_variable& cond_write, boost::barrier& sync_write) {
     while(keepRunning) {
         std::unique_lock<std::mutex> lock(mutex_write);
         cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
@@ -460,6 +461,7 @@ void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mut
         q_write.pop();
 
         writer.write(img);
+        sync_write.wait();
     }
 }
 
@@ -592,9 +594,10 @@ int main(int argc, char** argv) {
     std::mutex mutex_write;
     std::condition_variable cond_cam;
     std::condition_variable cond_write;
+    boost::barrier sync_write{2};
 
     std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), std::ref(cond_cam), std::ref(cond_write));
-    std::thread thr_write(write_frames, std::ref(writer), std::ref(q_write), std::ref(mutex_write), std::ref(cond_write));
+    std::thread thr_write(write_frames, std::ref(writer), std::ref(q_write), std::ref(mutex_write), std::ref(cond_write), std::ref(sync_write));
 
     const auto SPLIT_TIME = chrono::hours(1);
     const auto MAX_SPLIT_TIME = chrono::hours(1) + chrono::minutes(30);
@@ -754,6 +757,8 @@ int main(int argc, char** argv) {
         total_ms_profile += chrono::duration_cast<chrono::microseconds>(end_profile - start_profile).count();
         auto end_true = chrono::system_clock::now();
         total_ms_true += chrono::duration_cast<chrono::microseconds>(end_true - start_true).count();
+
+        sync_write.wait();
     }
 
     counts_file.close();
