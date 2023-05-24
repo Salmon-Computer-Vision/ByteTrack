@@ -461,11 +461,6 @@ void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mut
 
         writer.write(img);
     }
-
-    {
-        std::lock_guard<std::mutex> lock_write(mutex_write);
-        writer.release();
-    }
 }
 
 
@@ -760,8 +755,16 @@ int main(int argc, char** argv) {
         auto end_true = chrono::system_clock::now();
         total_ms_true += chrono::duration_cast<chrono::microseconds>(end_true - start_true).count();
     }
+
     counts_file.close();
     thr_cam.join();
+    thr_write.join();
+
+    {
+        std::lock_guard<std::mutex> lock_write(mutex_write);
+        writer.release();
+    }
+
     cout << "FPS: " << running_fps << endl;
     // destroy the engine
     context->destroy();
