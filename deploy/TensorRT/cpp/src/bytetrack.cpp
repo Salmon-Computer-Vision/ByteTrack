@@ -436,16 +436,12 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
     {
         if(!cap.read(img))
             break;
-        
-        Mat pr_img = static_resize(img);
-        float* blob;
-        blob = blobFromImage(pr_img);
 
         q_write.push(img);
         cond_write.notify_one();
 
         q_cam.push(img);
-        q_blob.push(blob);
+        //q_blob.push(blob);
         cond_cam.notify_one();
     }
     keepRunning = false;
@@ -616,7 +612,7 @@ int main(int argc, char** argv) {
     {
         auto start_true = chrono::system_clock::now();
         auto start_before = chrono::system_clock::now();
-        float* blob;
+        //float* blob;
         { 
             // Wait for a frame in the queue and get it
             std::unique_lock<std::mutex> lock(mutex_cam);
@@ -625,8 +621,8 @@ int main(int argc, char** argv) {
 
             img = q_cam.front();
             q_cam.pop();
-            blob = q_blob.front();
-            q_blob.pop();
+            //blob = q_blob.front();
+            //q_blob.pop();
 
             num_empty++;
             num_frames ++;
@@ -678,6 +674,10 @@ int main(int argc, char** argv) {
 
 		if (img.empty())
 			break;
+        
+        Mat pr_img = static_resize(img);
+        float* blob;
+        blob = blobFromImage(pr_img);
 
         float scale = min(INPUT_W / (img.cols*1.0), INPUT_H / (img.rows*1.0));
 
