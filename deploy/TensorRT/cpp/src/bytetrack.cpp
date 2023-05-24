@@ -461,6 +461,11 @@ void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mut
 
         writer.write(img);
     }
+
+    {
+        std::lock_guard<std::mutex> lock_write(mutex_write);
+        writer.release();
+    }
 }
 
 
