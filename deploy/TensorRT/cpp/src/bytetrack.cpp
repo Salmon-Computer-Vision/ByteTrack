@@ -755,12 +755,12 @@ int main(int argc, char** argv) {
 
         delete blob;
 
+        sync_write.wait();
+
         auto end_profile = chrono::system_clock::now();
         total_ms_profile += chrono::duration_cast<chrono::microseconds>(end_profile - start_profile).count();
         auto end_true = chrono::system_clock::now();
         total_ms_true += chrono::duration_cast<chrono::microseconds>(end_true - start_true).count();
-
-        sync_write.wait();
     }
 
     counts_file.close();
