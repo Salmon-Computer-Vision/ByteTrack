@@ -609,8 +609,6 @@ int main(int argc, char** argv) {
     int total_ms_true = 0;
     int total_ms_profile = 0;
     int total_ms_before = 0;
-    int running_fps = fps;
-    int running_fps_true = fps;
 	while (keepRunning)
     {
         auto start_true = chrono::system_clock::now();
@@ -658,8 +656,9 @@ int main(int argc, char** argv) {
                     num_frames = 0;
                 }
 
-                running_fps = (running_fps + (fps / (total_ms / 1000000.0))) / 2;
-                running_fps_true = (running_fps_true + (fps / (total_ms_true / 1000000.0))) / 2;
+                auto running_fps = fps / (total_ms / 1000000.0);
+                auto running_fps_true = fps / (total_ms_true / 1000000.0);
+
                 cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
                     << " (" << fps / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << fps / (total_ms_before / 1000000.0)  << " before fps)" << endl;
                 cout << "Frames left: " << q_cam.size() << endl;
@@ -776,7 +775,7 @@ int main(int argc, char** argv) {
         writer.release();
     }
 
-    cout << "FPS: " << running_fps << endl;
+    cout << "Finished..." << endl;
     // destroy the engine
     context->destroy();
     engine->destroy();
