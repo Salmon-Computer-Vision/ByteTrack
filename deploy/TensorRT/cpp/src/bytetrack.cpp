@@ -627,8 +627,6 @@ int main(int argc, char** argv) {
             //blob = q_blob.front();
             //q_blob.pop();
 
-            num_empty++;
-            num_frames ++;
             if (num_frames % fps == 0)
             {
                 counts_file << std::flush;
@@ -674,6 +672,8 @@ int main(int argc, char** argv) {
                 }
             }
         }
+        num_empty++;
+        num_frames ++;
 
 		if (img.empty())
 			break;
