@@ -609,8 +609,8 @@ int main(int argc, char** argv) {
     int total_ms_true = 0;
     int total_ms_profile = 0;
     int total_ms_before = 0;
-    int running_fps = 0;
-    int running_fps_true = 0;
+    double running_fps = 0;
+    double running_fps_true = 0;
 	while (keepRunning)
     {
         auto start_true = chrono::system_clock::now();
