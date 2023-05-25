@@ -656,15 +656,19 @@ int main(int argc, char** argv) {
                     start_split_time = chrono::system_clock::now();
                     check_split = false;
                     num_frames = 0;
-                    total_ms = 0;
-                    total_ms_true = 0;
                 }
 
-                running_fps = (running_fps + (num_frames / (total_ms / 1000000.0))) / 2;
-                running_fps_true = (running_fps_true + (num_frames / (total_ms_true / 1000000.0))) / 2;
+                running_fps = (running_fps + (fps / (total_ms / 1000000.0))) / 2;
+                running_fps_true = (running_fps_true + (fps / (total_ms_true / 1000000.0))) / 2;
                 cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
-                    << " (" << num_frames / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << num_frames / (total_ms_before / 1000000.0)  << " before fps)" << endl;
+                    << " (" << fps / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << fps / (total_ms_before / 1000000.0)  << " before fps)" << endl;
                 cout << "Frames left: " << q_cam.size() << endl;
+
+                // Reset ints due to likely integer overflow
+                total_ms = 0;
+                total_ms_true = 0;
+                total_ms_before = 0;
+                total_ms_profile = 0;
 
                 if (q_cam.size() > 100) {
                     cout << "Past threshold... Skipping frames..." << endl;
