@@ -640,6 +640,7 @@ int main(int argc, char** argv) {
                 if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                     std::queue<Mat>().swap(q_cam);
+                    std::queue<Mat>().swap(q_write);
                     std::queue<float*>().swap(q_blob);
 
                     // May throw fs::filesystem_error exception and exit program
@@ -668,6 +669,7 @@ int main(int argc, char** argv) {
                 if (q_cam.size() > 100) {
                     cout << "Past threshold... Skipping frames..." << endl;
                     std::queue<Mat>().swap(q_cam);
+                    std::queue<Mat>().swap(q_write);
                     std::queue<float*>().swap(q_blob);
                 }
             }
