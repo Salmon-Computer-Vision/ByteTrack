@@ -637,16 +637,17 @@ int main(int argc, char** argv) {
                 // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
                 if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
-                    std::queue<Mat>().swap(q_cam);
-                    std::queue<Mat>().swap(q_write);
-                    std::queue<float*>().swap(q_blob);
-
-                    // May throw fs::filesystem_error exception and exit program
-                    counts_file.close();
-                    tracks_file.close();
-
                     {
                         std::lock_guard<std::mutex> lock_write(mutex_write);
+
+                        std::queue<Mat>().swap(q_cam);
+                        std::queue<Mat>().swap(q_write);
+                        std::queue<float*>().swap(q_blob);
+
+                        // May throw fs::filesystem_error exception and exit program
+                        counts_file.close();
+                        tracks_file.close();
+
                         writer.release();
                         std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
                     }
@@ -671,9 +672,13 @@ int main(int argc, char** argv) {
 
                 if (q_cam.size() > 100) {
                     cout << "Past threshold... Skipping frames..." << endl;
-                    std::queue<Mat>().swap(q_cam);
-                    std::queue<Mat>().swap(q_write);
-                    std::queue<float*>().swap(q_blob);
+                    {
+                        std::lock_guard<std::mutex> lock_write(mutex_write);
+
+                        std::queue<Mat>().swap(q_cam);
+                        std::queue<Mat>().swap(q_write);
+                        std::queue<float*>().swap(q_blob);
+                    }
                 }
             }
         }
