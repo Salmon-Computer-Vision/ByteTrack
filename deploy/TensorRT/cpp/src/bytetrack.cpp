@@ -522,10 +522,8 @@ int main(int argc, char** argv) {
 	if (!cap.isOpened())
 		return 0;
 
-	//int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
-	int img_w = 1280;
-	//int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
-	int img_h = 720;
+	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
+	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
     const int fps = argc >= 6 ? std::atoi(argv[5]) : cap.get(CAP_PROP_FPS);
     cout << "fps: " << fps << endl;
 
@@ -550,7 +548,7 @@ int main(int argc, char** argv) {
 
         cout << "video save_path is " << save_path << endl;
 
-        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc bitrate=2639 vbv-size=530 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
+        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc bitrate=2639 vbv-size=530 insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
