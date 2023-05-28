@@ -431,12 +431,30 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 }
 
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<Mat>& q_write, 
-        std::queue<float*>& q_blob, std::condition_variable& cond_cam, std::condition_variable& cond_write) {
+        std::queue<float*>& q_blob, 
+        std::mutex& mutex_cam, std::mutex& mutex_write,
+        std::condition_variable& cond_cam, std::condition_variable& cond_write) {
     Mat img;
+    const int BUFFER = 120;
+    int num_frames = 0;
 	while (keepRunning)
     {
         if(!cap.read(img))
             break;
+
+        if (num_frames % fps_in == 0 && q_cam.size() > BUFFER) {
+            cout << "Past threshold... Skipping frames..." << endl;
+            {
+                std::lock_guard<std::mutex> lock_cam(mutex_cam);
+                std::queue<Mat>().swap(q_cam);
+                std::queue<float*>().swap(q_blob);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock_write(mutex_write);
+                std::queue<Mat>().swap(q_write);
+            }
+        }
 
         q_write.push(img);
         cond_write.notify_one();
@@ -598,7 +616,8 @@ int main(int argc, char** argv) {
     std::condition_variable cond_write;
     boost::barrier sync_write{2};
 
-    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), std::ref(cond_cam), std::ref(cond_write));
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), 
+            std::ref(mutex_cam), std::ref(mutex_write), std::ref(cond_cam), std::ref(cond_write));
     std::thread thr_write(write_frames, std::ref(writer), std::ref(q_write), std::ref(mutex_write), std::ref(cond_write), std::ref(sync_write));
 
     const auto SPLIT_TIME = chrono::minutes(15);
@@ -671,17 +690,6 @@ int main(int argc, char** argv) {
                 total_ms_true = 0;
                 total_ms_before = 0;
                 total_ms_profile = 0;
-
-                if (q_cam.size() > 100) {
-                    cout << "Past threshold... Skipping frames..." << endl;
-                    {
-                        std::lock_guard<std::mutex> lock_write(mutex_write);
-
-                        std::queue<Mat>().swap(q_cam);
-                        std::queue<Mat>().swap(q_write);
-                        std::queue<float*>().swap(q_blob);
-                    }
-                }
             }
         }
         num_empty++;
