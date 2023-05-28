@@ -453,14 +453,16 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
 void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mutex_write,
         std::condition_variable& cond_write, boost::barrier& sync_write) {
     while(keepRunning) {
-        std::unique_lock<std::mutex> lock(mutex_write);
-        cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
-        if (!keepRunning && q_write.empty()) break;
+        {
+            std::unique_lock<std::mutex> lock(mutex_write);
+            cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
+            if (!keepRunning && q_write.empty()) break;
 
-        auto img = q_write.front();
-        q_write.pop();
+            auto img = q_write.front();
+            q_write.pop();
 
-        writer.write(img);
+            writer.write(img);
+        }
         sync_write.wait();
     }
 }
