@@ -431,12 +431,30 @@ void write_csv(const std::vector<std::vector<std::string>>& table, std::ofstream
 }
 
 void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam, std::queue<Mat>& q_write, 
-        std::queue<float*>& q_blob, std::condition_variable& cond_cam, std::condition_variable& cond_write) {
+        std::queue<float*>& q_blob, 
+        std::mutex& mutex_cam, std::mutex& mutex_write,
+        std::condition_variable& cond_cam, std::condition_variable& cond_write) {
     Mat img;
+    const int BUFFER = 120;
+    int num_frames = 0;
 	while (keepRunning)
     {
         if(!cap.read(img))
             break;
+
+        if (num_frames % fps_in == 0 && q_cam.size() > BUFFER) {
+            cout << "Past threshold... Skipping frames..." << endl;
+            {
+                std::lock_guard<std::mutex> lock_cam(mutex_cam);
+                std::queue<Mat>().swap(q_cam);
+                std::queue<float*>().swap(q_blob);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock_write(mutex_write);
+                std::queue<Mat>().swap(q_write);
+            }
+        }
 
         q_write.push(img);
         cond_write.notify_one();
@@ -453,14 +471,16 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
 void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mutex_write,
         std::condition_variable& cond_write, boost::barrier& sync_write) {
     while(keepRunning) {
-        std::unique_lock<std::mutex> lock(mutex_write);
-        cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
-        if (!keepRunning && q_write.empty()) break;
+        {
+            std::unique_lock<std::mutex> lock(mutex_write);
+            cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
+            if (!keepRunning && q_write.empty()) break;
 
-        auto img = q_write.front();
-        q_write.pop();
+            auto img = q_write.front();
+            q_write.pop();
 
-        writer.write(img);
+            writer.write(img);
+        }
         sync_write.wait();
     }
 }
@@ -548,7 +568,7 @@ int main(int argc, char** argv) {
 
         cout << "video save_path is " << save_path << endl;
 
-        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
+        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc bitrate=2639 vbv-size=530 insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
@@ -596,11 +616,12 @@ int main(int argc, char** argv) {
     std::condition_variable cond_write;
     boost::barrier sync_write{2};
 
-    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), std::ref(cond_cam), std::ref(cond_write));
+    std::thread thr_cam(receive_frames, std::move(cap), fps, std::ref(q_cam), std::ref(q_write), std::ref(q_blob), 
+            std::ref(mutex_cam), std::ref(mutex_write), std::ref(cond_cam), std::ref(cond_write));
     std::thread thr_write(write_frames, std::ref(writer), std::ref(q_write), std::ref(mutex_write), std::ref(cond_write), std::ref(sync_write));
 
-    const auto SPLIT_TIME = chrono::hours(1);
-    const auto MAX_SPLIT_TIME = chrono::hours(1) + chrono::minutes(30);
+    const auto SPLIT_TIME = chrono::minutes(15);
+    const auto MAX_SPLIT_TIME = chrono::minutes(20);
 
     Mat img;
     BYTETracker tracker(fps, 30);
@@ -629,24 +650,25 @@ int main(int argc, char** argv) {
             {
                 counts_file << std::flush;
                 tracks_file << std::flush;
-                // Split videos every approx. hour
-                if (!check_split && (chrono::system_clock::now() - start_split_time) > 
-                        SPLIT_TIME) check_split = true;
-
                 const auto elapsed = chrono::system_clock::now() - start_split_time;
+                // Check if should split
+                if (!check_split && (elapsed > 
+                        SPLIT_TIME)) check_split = true;
+
                 // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
                 if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
-                    std::queue<Mat>().swap(q_cam);
-                    std::queue<Mat>().swap(q_write);
-                    std::queue<float*>().swap(q_blob);
-
-                    // May throw fs::filesystem_error exception and exit program
-                    counts_file.close();
-                    tracks_file.close();
-
                     {
                         std::lock_guard<std::mutex> lock_write(mutex_write);
+
+                        std::queue<Mat>().swap(q_cam);
+                        std::queue<Mat>().swap(q_write);
+                        std::queue<float*>().swap(q_blob);
+
+                        // May throw fs::filesystem_error exception and exit program
+                        counts_file.close();
+                        tracks_file.close();
+
                         writer.release();
                         std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
                     }
@@ -668,13 +690,6 @@ int main(int argc, char** argv) {
                 total_ms_true = 0;
                 total_ms_before = 0;
                 total_ms_profile = 0;
-
-                if (q_cam.size() > 100) {
-                    cout << "Past threshold... Skipping frames..." << endl;
-                    std::queue<Mat>().swap(q_cam);
-                    std::queue<Mat>().swap(q_write);
-                    std::queue<float*>().swap(q_blob);
-                }
             }
         }
         num_empty++;
