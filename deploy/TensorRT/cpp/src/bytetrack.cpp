@@ -629,11 +629,11 @@ int main(int argc, char** argv) {
             {
                 counts_file << std::flush;
                 tracks_file << std::flush;
-                // Split videos every approx. hour
-                if (!check_split && (chrono::system_clock::now() - start_split_time) > 
-                        SPLIT_TIME) check_split = true;
-
                 const auto elapsed = chrono::system_clock::now() - start_split_time;
+                // Check if should split
+                if (!check_split && (elapsed > 
+                        SPLIT_TIME)) check_split = true;
+
                 // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
                 if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
