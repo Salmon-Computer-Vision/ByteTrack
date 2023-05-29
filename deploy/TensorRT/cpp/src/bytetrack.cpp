@@ -645,52 +645,55 @@ int main(int argc, char** argv) {
             q_cam.pop();
             //blob = q_blob.front();
             //q_blob.pop();
+        }
 
-            if (num_frames % fps == 0)
-            {
-                counts_file << std::flush;
-                tracks_file << std::flush;
-                const auto elapsed = chrono::system_clock::now() - start_split_time;
-                // Check if should split
-                if (!check_split && (elapsed > 
-                        SPLIT_TIME)) check_split = true;
+        if (num_frames % fps == 0)
+        {
+            counts_file << std::flush;
+            tracks_file << std::flush;
+            const auto elapsed = chrono::system_clock::now() - start_split_time;
+            // Check if should split
+            if (!check_split && (elapsed > 
+                    SPLIT_TIME)) check_split = true;
 
-                // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
-                if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    {
-                        std::lock_guard<std::mutex> lock_write(mutex_write);
+            // Recreate writer if error or Split every hour if one second of empty frames - 1:30 max
+            if (!tracks_file || (check_split && (num_empty > fps || elapsed >= MAX_SPLIT_TIME))) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+                {
+                    std::lock_guard<std::mutex> lock_cam(mutex_cam);
+                    std::queue<Mat>().swap(q_cam);
+                    std::queue<float*>().swap(q_blob);
+                }
+                {
+                    std::lock_guard<std::mutex> lock_write(mutex_write);
 
-                        std::queue<Mat>().swap(q_cam);
-                        std::queue<Mat>().swap(q_write);
-                        std::queue<float*>().swap(q_blob);
+                    std::queue<Mat>().swap(q_write);
 
-                        // May throw fs::filesystem_error exception and exit program
-                        counts_file.close();
-                        tracks_file.close();
+                    // May throw fs::filesystem_error exception and exit program
+                    counts_file.close();
+                    tracks_file.close();
 
-                        writer.release();
-                        std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
-                    }
-
-                    start_split_time = chrono::system_clock::now();
-                    check_split = false;
-                    num_frames = 0;
+                    writer.release();
+                    std::tie(timestamp, writer, save_path, counts_file, tracks_file) = create_vid_writer(std::time(nullptr));
                 }
 
-                auto running_fps = fps / (total_ms / 1000000.0);
-                auto running_fps_true = fps / (total_ms_true / 1000000.0);
-
-                cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
-                    << " (" << fps / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << fps / (total_ms_before / 1000000.0)  << " before fps)" << endl;
-                cout << "Frames left: " << q_cam.size() << endl;
-
-                // Reset ints due to likely integer overflow
-                total_ms = 0;
-                total_ms_true = 0;
-                total_ms_before = 0;
-                total_ms_profile = 0;
+                start_split_time = chrono::system_clock::now();
+                check_split = false;
+                num_frames = 0;
             }
+
+            auto running_fps = fps / (total_ms / 1000000.0);
+            auto running_fps_true = fps / (total_ms_true / 1000000.0);
+
+            cout << "Processing frame " << num_frames << " (" << running_fps << " inference fps)" << " (" << running_fps_true << " fps)" 
+                << " (" << fps / (total_ms_profile / 1000000.0)  << " profiling fps)" << " (" << fps / (total_ms_before / 1000000.0)  << " before fps)" << endl;
+            cout << "Frames left: " << q_cam.size() << endl;
+
+            // Reset ints due to likely integer overflow
+            total_ms = 0;
+            total_ms_true = 0;
+            total_ms_before = 0;
+            total_ms_profile = 0;
         }
         num_empty++;
         num_frames ++;
