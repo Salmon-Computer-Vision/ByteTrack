@@ -470,7 +470,7 @@ void receive_frames(VideoCapture&& cap, const int fps_in, std::queue<Mat>& q_cam
 
 void write_frames(VideoWriter& writer, std::queue<Mat>& q_write, std::mutex& mutex_write,
         std::condition_variable& cond_write, boost::barrier& sync_write) {
-    while(keepRunning) {
+    while(true) {
         {
             std::unique_lock<std::mutex> lock(mutex_write);
             cond_write.wait(lock, [&]{ return !q_write.empty() || !keepRunning; });
@@ -630,7 +630,7 @@ int main(int argc, char** argv) {
     int total_ms_true = 0;
     int total_ms_profile = 0;
     int total_ms_before = 0;
-	while (keepRunning)
+	while (true)
     {
         auto start_true = chrono::system_clock::now();
         auto start_before = chrono::system_clock::now();
