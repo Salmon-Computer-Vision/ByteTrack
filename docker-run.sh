@@ -7,7 +7,7 @@ prefix=river
 fps=15
 raspi_ip=192.168.1.98
 encoding=-4 # Set -5 if using h265
-timezone="/usr/share/zoneinfo/America/Vancouver"
+timezone="GMT+8"
 
 # Constants
 docker_image=bytetrack:manual
