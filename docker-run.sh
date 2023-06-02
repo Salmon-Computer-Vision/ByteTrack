@@ -7,6 +7,7 @@ prefix=river
 fps=15
 raspi_ip=192.168.1.98
 encoding=-4 # Set -5 if using h265
+timezone="/usr/share/zoneinfo/America/Vancouver"
 
 # Constants
 docker_image=bytetrack:manual
@@ -31,4 +32,4 @@ sudo docker run -i --rm --runtime nvidia \
     -e DISPLAY=$DISPLAY \
     --privileged \
     $docker_image \
-    ../tools/run_bytetrack.sh "${input}" "$prefix" $fps $raspi_ip $encoding
+    ../tools/run_bytetrack.sh "${input}" "$prefix" $fps $raspi_ip $encoding $timezone
