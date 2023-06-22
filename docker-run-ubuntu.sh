@@ -3,7 +3,7 @@
 name=$1
 
 # Constants
-docker_image=bytetrack
+docker_image=bytetrack_ubuntu
 bytetrack_home=~/ByteTrack
 workspace=/workspace/mot_dev
 
