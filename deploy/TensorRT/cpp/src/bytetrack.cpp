@@ -8,6 +8,7 @@
 #include <chrono>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 #include <signal.h>
@@ -536,11 +537,24 @@ int main(int argc, char** argv) {
     }
     static float* prob = new float[output_size];
 
-    const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph"+encoding_type+"depay ! h"+encoding_type+"parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
-    VideoCapture cap(gst_cap_str, CAP_GSTREAMER);
-    //VideoCapture cap(input_video_path);
-	if (!cap.isOpened())
-		return 0;
+    std::vector<string> vid_exts = {".m4v", ".mp4", ".avi", ".mkv", ".mov", ".flv"};
+    auto input_vid_ext = fs::path(input_video_path).extension().string();
+    std::transform(input_vid_ext.begin(), input_vid_ext.end(), input_vid_ext.begin(),
+            [](unsigned char c){return std::tolower(c); });
+
+    cv::VideoCapture cap;
+    if (std::find(vid_exts.begin(), vid_exts.end(), input_vid_ext) == vid_exts.end()) {
+        cout << "Setting up RTSP stream..." << endl;
+        const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph"+encoding_type+"depay ! h"+encoding_type+"parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
+        cap.open(gst_cap_str, CAP_GSTREAMER);
+    } else {
+        cout << "Opening video file..." << endl;
+        cap.open(input_video_path);
+    }
+	if (!cap.isOpened()) {
+        cerr << "Failed to open VideoCapture" << endl;
+		return -1;
+    }
 
 	int img_w = cap.get(CAP_PROP_FRAME_WIDTH);
 	int img_h = cap.get(CAP_PROP_FRAME_HEIGHT);
