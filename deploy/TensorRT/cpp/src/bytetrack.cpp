@@ -543,6 +543,7 @@ int main(int argc, char** argv) {
             [](unsigned char c){return std::tolower(c); });
 
     cv::VideoCapture cap;
+    bool is_video = false;
     if (std::find(vid_exts.begin(), vid_exts.end(), input_vid_ext) == vid_exts.end()) {
         cout << "Setting up RTSP stream..." << endl;
         const string gst_cap_str = "rtspsrc location="+input_video_path+" short-header=TRUE ! rtph"+encoding_type+"depay ! h"+encoding_type+"parse ! nvv4l2decoder ! nvvidconv ! video/x-raw,format=BGRx ! videoconvert ! video/x-raw,format=BGR ! appsink";
@@ -550,6 +551,7 @@ int main(int argc, char** argv) {
     } else {
         cout << "Opening video file..." << endl;
         cap.open(input_video_path);
+        is_video = true;
     }
 	if (!cap.isOpened()) {
         cerr << "Failed to open VideoCapture" << endl;
@@ -586,13 +588,20 @@ int main(int argc, char** argv) {
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
-
-        std::string counts_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv")).string();
+        std::string counts_filename;
+        std::string tracks_filename;
+        if (!is_video) {
+            counts_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_counts.csv")).string();
+            tracks_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_tracks.csv")).string();
+        } else {
+            auto input_folder = fs::path(input_video_path).parent_path();
+            auto filename = fs::path(input_video_path).stem().string();
+            counts_filename = (input_folder / fs::path(filename + "_counts.csv")).string();
+            tracks_filename = (input_folder / fs::path(filename + "_tracks.csv")).string();
+        }
         std::ofstream counts_file(counts_filename);
-        cout << "counts save_path is " << counts_filename << endl;
-
-        std::string tracks_filename = (fs::path(save_folder) / fs::path(timestamp + "_" + output_suffix + "_tracks.csv")).string();
         std::ofstream tracks_file(tracks_filename);
+        cout << "counts save_path is " << counts_filename << endl;
         cout << "tracks save_path is " << tracks_filename << endl;
 
         return std::make_tuple(timestamp, std::move(writer), save_path, std::move(counts_file), std::move(tracks_file));
