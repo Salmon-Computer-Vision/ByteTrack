@@ -11,10 +11,8 @@ import glob
 COL_FILENAME = 'Filename'
 COL_COUNTABLE_ID = 'Countable ID'
 COL_TRACK_ID = 'Track ID'
-COL_TOP = 'Top Coord'
-COL_LEFT = 'Left Coord'
-COL_WIDTH = 'Width'
-COL_HEIGHT = 'Height'
+
+
 COL_CONF = 'Confidence'
 COL_FRAME_NUM = 'Frame Num'
 COL_DIRECTION = 'Direction'
@@ -22,12 +20,41 @@ VAL_LEFT = 'Left'
 VAL_RIGHT = 'Right'
 COL_COUNT = 'Count'
 
+COL_TOP = 'Top Coord'
+COL_LEFT = 'Left Coord'
+COL_WIDTH = 'Width'
+COL_HEIGHT = 'Height'
+
+COL_TOP2 = 'Top Coord 2'
+COL_LEFT2 = 'Left Coord 2'
+COL_WIDTH2 = 'Width 2'
+COL_HEIGHT2 = 'Height 2'
+
+COL_X1_MAX = 'x1_max'
+COL_Y1_MAX = 'y1_max'
+COL_X2_MAX = 'x2_max'
+COL_Y2_MAX = 'y2_max'
+
+COL_X_MIN_COMMON = 'x_min_common'
+COL_Y_MIN_COMMON = 'y_min_common'
+COL_X_MAX_COMMON = 'x_max_common'
+COL_Y_MAX_COMMON = 'y_max_common'
+
 COL_CLASS_ID = 'Class ID'
 COL_XCENTRE = 'x_centre'
 COL_YCENTRE = 'y_centre'
 
 logging.basicConfig(level=logging.INFO,
 format='%(asctime)s %(levelname)s %(message)s')
+
+def area(df,columns):
+    '''
+    compute the box area 
+    @param df: a dataframe
+    @param columns: box coordinates (x_min, y_min, x_max, y_max)
+    '''
+    x1,y1,x2,y2 = [df[col] for col in columns]
+    return (x2-x1)*(y2-y1)
 
 def combine_mot_det(opt):
     logging.info("Combining classifications and MOT boxes")
@@ -43,6 +70,7 @@ def combine_mot_det(opt):
     det_csvs_map.sort(key=lambda tup: tup[0])
 
     size = opt.size.split('x')
+    size = [int(x) for x in size]
 
     det_ind = 0
     for csv_tup in mot_csvs_map: 
@@ -59,13 +87,48 @@ def combine_mot_det(opt):
             det_ind += 1
 
         df_mot = pd.read_csv(filepath, index_col=False, names=[COL_FRAME_NUM, COL_TRACK_ID, COL_LEFT, COL_TOP, COL_WIDTH, COL_HEIGHT, COL_CONF])
-        df_det = pd.read_csv(det_filepath, sep=' ', index_col=False, names=[COL_CLASS_ID, COL_XCENTRE, COL_YCENTRE, COL_WIDTH, COL_HEIGHT, COL_CONF, COL_FRAME_NUM])
+        df_det = pd.read_csv(det_filepath, sep=' ', index_col=False, names=[COL_CLASS_ID, COL_XCENTRE, COL_YCENTRE, COL_WIDTH2, COL_HEIGHT2, COL_CONF, COL_FRAME_NUM])
 
-        # Convert YOLO format to MOT sequence format
+        # Convert YOLO bbox format to MOT sequence bbox format
+        # YOLO: (x_centre y_centre width height)
+        # MOT seq: (left top width height)
+
+        df_det[COL_LEFT2] = (df_det[COL_XCENTRE] - (df_det[COL_WIDTH2] / 2.0)) * size[0]
+        df_det[COL_TOP2] = (df_det[COL_YCENTRE] - (df_det[COL_HEIGHT2] / 2.0)) * size[1]
+        # Unnormalize sizes
+        df_det[COL_WIDTH2] = df_det[COL_WIDTH2] * size[0]
+        df_det[COL_HEIGHT2] = df_det[COL_HEIGHT2] * size[1]
 
         # Calculate IOU between the two per frame
+        combined_df = df_mot.merge(df_det, on=COL_FRAME_NUM)
+
+        # Convert to (x_min x_max y_min y_max)
+        # x_min == left and y_min == top
+        
+        combined_df[COL_X1_MAX] = combined_df[COL_LEFT] + combined_df[COL_HEIGHT]
+        combined_df[COL_Y1_MAX] = combined_df[COL_TOP] + combined_df[COL_HEIGHT]
+
+        combined_df[COL_X2_MAX] = combined_df[COL_LEFT2] + combined_df[COL_HEIGHT2]
+        combined_df[COL_Y2_MAX] = combined_df[COL_TOP2] + combined_df[COL_HEIGHT2]
+
+        # Intersection
+        combined_df[COL_X_MAX_COMMON] = combined_df[[COL_X1_MAX, COL_X2_MAX]].min(1)
+        combined_df[COL_X_MIN_COMMON] = combined_df[[COL_X1_MIN, COL_X2_MIN]].max(1)
+        combined_df[COL_Y_MAX_COMMON] = combined_df[[COL_Y1_MAX, COL_Y2_MAX]].min(1)
+        combined_df[COL_Y_MIN_COMMON] = combined_df[[COL_Y1_MIN, COL_Y2_MIN]].max(1)
+
+        # Only allow valid intersections
+        true_intersects = (combined_df[COL_X_MAX_COMMON] > combined_df[COL_X_MIN_COMMON]) & \
+                (combined_df[COL_Y_MAX_COMMON] > combined_df[COL_Y_MIN_COMMON])
+
+        combined_df = combined_df[true_intersects]
+
+        # Areas
+        #mot_areas = area(combined_df, [COL_X1_MIN, COL_Y1_MIN, COL_X1_MAX])
 
         # Assign class ID to each tracking box within the IOU threshold
+        print(combined_df)
+
         return
 
 def count(opt):
