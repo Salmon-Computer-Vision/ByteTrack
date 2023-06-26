@@ -9,7 +9,6 @@ import glob
 
 COL_FILENAME = 'Filename'
 COL_COUNTABLE_ID = 'Countable ID'
-COL_TRACK_ID = 'Track ID'
 COL_FRAME_NUM = 'Frame Num'
 COL_DIRECTION = 'Direction'
 VAL_LEFT = 'Left'
@@ -18,14 +17,6 @@ COL_COUNT = 'Count'
 
 logging.basicConfig(level=logging.INFO,
 format='%(asctime)s %(levelname)s %(message)s')
-
-def combine_mot_det(opt):
-    logging.info("Combining classifications and MOT boxes")
-    mot_csvs = glob.glob(os.path.join(opt.mot_folder, '**', '*tracks.csv'))
-    det_csvs = glob.glob(os.path.join(opt.det_folder, '**', '*.txt'))
-    for csv in mot_csvs: 
-        logging.info(csv)
-        df = pd.read_csv(csv, names=[COL_FRAME_NUM, COL_TRACK_ID, COL_DIRECTION])
 
 def count(opt):
     df_counts = pd.DataFrame(columns=[COL_FILENAME, COL_COUNT]).set_index(COL_FILENAME)
@@ -62,21 +53,13 @@ def count(opt):
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description="Given countable CSV files from the MOT, generates summarized counts from them.")
+  #subp = parser.add_subparsers(dest='cmd')
 
   parser.add_argument('folder', help='Path to directory of csv files')
   parser.add_argument('-o', '--output-csv', default='all_counts.csv', help='Path to the output csv file')
   parser.add_argument('-u', '--upstream', default=None, choices=['right', 'left'], help='Specify upstream direction.')
 
-  subp = parser.add_subparsers(dest='cmd')
-
-  combine_mot_det_p = subp.add_parser('combine', help='Combines class detections and MOT boxes.')
-  combine_mot_det_p.add_argument('-mf', '--mot-folder', default='mot_tracks', help='Path to the folder with the MOT tracks CSV files.')
-  combine_mot_det_p.add_argument('-df', '--det-folder', default='det_tracks', help='Path to the folder with the class detections .txt files.')
-
   opt = parser.parse_args()
   print(opt, end='\n\n')
 
-  if opt.cmd == 'combine':
-      combine_mot_det(opt)
-  else:
-      count(opt)
+  count(opt)
