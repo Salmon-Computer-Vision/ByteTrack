@@ -62,6 +62,10 @@ def combine_mot_det(opt):
         df_det = pd.read_csv(det_filepath, sep=' ', index_col=False, names=[COL_CLASS_ID, COL_XCENTRE, COL_YCENTRE, COL_WIDTH, COL_HEIGHT, COL_CONF, COL_FRAME_NUM])
 
         # Convert YOLO format to MOT sequence format
+
+        # Calculate IOU between the two per frame
+
+        # Assign class ID to each tracking box within the IOU threshold
         return
 
 def count(opt):
