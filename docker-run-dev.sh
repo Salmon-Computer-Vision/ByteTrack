@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 name=$1
-input=$2
 
 # Variables
 prefix=river
@@ -13,17 +12,19 @@ timezone="GMT+8"
 docker_image=masami.hopto.org:23411/bytetrack:dev
 bytetrack_home=/home/salmonjetson/ByteTrack
 workspace=/ByteTrack/YOLOX_outputs
+workspace_dev=/mot_dev
 
 mkdir -p "${bytetrack_home}"/YOLOX_outputs/track_outputs
 sudo chattr +i "${bytetrack_home}"/YOLOX_outputs/track_outputs
 
 # Run ByteTrack on input outputting to the YOLOX_outputs folder into the $prefix folder
-sudo docker run -i --rm --runtime nvidia \
+sudo docker run -it --rm --runtime nvidia \
     -v ${bytetrack_home}/pretrained:/ByteTrack/pretrained \
     -v ${bytetrack_home}/datasets:/ByteTrack/datasets \
     -v ${bytetrack_home}/YOLOX_outputs:/ByteTrack/YOLOX_outputs \
     -v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
     -v /home/salmonjetson/.ssh:/home/user/.ssh \
+    -v ${bytetrack_home}:${workspace_dev}
     -w "$workspace" \
     --device /dev/video0:/dev/video0:mwr \
     --net=host \
@@ -31,5 +32,4 @@ sudo docker run -i --rm --runtime nvidia \
     -e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
     -e DISPLAY=$DISPLAY \
     --privileged \
-    $docker_image \
-    ../tools/run_bytetrack.sh "${input}" "$prefix" $fps $raspi_ip $encoding $timezone
+    $docker_image
