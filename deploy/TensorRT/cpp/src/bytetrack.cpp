@@ -584,7 +584,7 @@ int main(int argc, char** argv) {
 
         cout << "video save_path is " << save_path << endl;
 
-        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc vbv-size=530 insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
+        const auto gst_writer_str = "appsrc ! video/x-raw,format=BGR,width="+to_string(img_w)+",height="+to_string(img_h)+",framerate="+to_string(fps)+"/1 ! queue ! videoconvert ! video/x-raw,format=BGRx ! nvvidconv ! nvv4l2h"+encoding_type+"enc vbv-size=200000 insert-vui=1 ! h"+encoding_type+"parse ! qtmux ! filesink location=" + save_path;
         //VideoWriter writer(save_path, VideoWriter::fourcc('m', 'p', '4', 'v'), fps, Size(img_w, img_h));
         VideoWriter writer(gst_writer_str, CAP_GSTREAMER, 0, fps, Size(img_w, img_h));
 
