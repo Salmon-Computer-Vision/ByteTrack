@@ -24,7 +24,7 @@ sudo docker run -it --rm --runtime nvidia \
     -v ${bytetrack_home}/YOLOX_outputs:/ByteTrack/YOLOX_outputs \
     -v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
     -v /home/salmonjetson/.ssh:/home/user/.ssh \
-    -v ${bytetrack_home}:${workspace_dev}
+    -v ${bytetrack_home}:${workspace_dev} \
     -w "$workspace" \
     --device /dev/video0:/dev/video0:mwr \
     --net=host \
