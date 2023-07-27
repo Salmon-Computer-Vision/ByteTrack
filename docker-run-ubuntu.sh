@@ -11,5 +11,6 @@ docker run -it --rm --runtime nvidia \
     -v "${bytetrack_home}:${workspace}" \
     -w "$workspace" \
     --net host --name bytetrack --privileged \
+    --ipc=host \
     -e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
     $docker_image
